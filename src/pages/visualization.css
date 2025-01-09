@@ -1,0 +1,14 @@
+@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@100;200;300;400;500;600;700;800;900&display=swap');
+
+.custom-checkbox-root .MuiSvgIcon-root{
+  width: 10px;
+  height: 10px;
+}
+
+/* .course-box {
+  height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+} */
