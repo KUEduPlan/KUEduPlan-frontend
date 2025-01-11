@@ -29,6 +29,11 @@ const DistributionChart: React.FC = () => {
     plugins: {
       legend: {
         display: false,
+        labels: {
+          font: {
+            family: 'Prompt, Arial, sans-serif',
+          },
+        },
       },
     },
     scales: {
@@ -36,12 +41,32 @@ const DistributionChart: React.FC = () => {
         title: {
           display: true,
           text: 'Number of years required to graduate',
+          font: {
+            family: 'Prompt, Arial, sans-serif',
+            size: 14,
+          },
+        },
+        ticks: {
+          font: {
+            family: 'Prompt, Arial, sans-serif',
+            size: 12,
+          },
         },
       },
       y: {
         title: {
           display: true,
           text: 'Number of student',
+          font: {
+            family: 'Prompt, Arial, sans-serif',
+            size: 14,
+          },
+        },
+        ticks: {
+          font: {
+            family: 'Prompt, Arial, sans-serif',
+            size: 12,
+          },
         },
       },
     },

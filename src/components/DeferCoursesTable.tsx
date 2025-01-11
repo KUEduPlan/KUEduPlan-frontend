@@ -12,6 +12,7 @@ import {
   TextField,
   TableSortLabel,
 } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 
 interface Row {
   code: string;
@@ -31,6 +32,7 @@ const DeferCoursesTable: React.FC = () => {
 
   const [order, setOrder] = useState<'asc' | 'desc'>('asc');
   const [orderBy, setOrderBy] = useState<keyof Row>('code');
+  const navigate = useNavigate();
 
   const handleSort = (property: keyof Row) => {
     const isAsc = orderBy === property && order === 'asc';
@@ -51,11 +53,11 @@ const DeferCoursesTable: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
         <Box>
           <Checkbox disabled />
-          <Typography variant="body2" display="inline">
+          <Typography variant="body2" display="inline" sx={{ fontSize: '16px' }}>
             Year 60 Curriculum
           </Typography>
           <Checkbox disabled />
-          <Typography variant="body2" display="inline">
+          <Typography variant="body2" display="inline" sx={{ fontSize: '16px' }}>
             Year 65 Curriculum
           </Typography>
         </Box>
@@ -65,49 +67,45 @@ const DeferCoursesTable: React.FC = () => {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ backgroundColor: '#f5f5f5' }} />
-              <TableCell sx={{ backgroundColor: '#f5f5f5' }}>
+              <TableCell sx={{ backgroundColor: '#f5f5f5', fontSize: '16px' }} />
+              <TableCell sx={{ backgroundColor: '#f5f5f5', fontSize: '16px' }}>
                 <TableSortLabel
                   active={orderBy === 'code'}
                   direction={orderBy === 'code' ? order : 'asc'}
                   onClick={() => handleSort('code')}
                   hideSortIcon={false}
-                  // sx={{ '& .MuiTableSortLabel-icon': { opacity: 1 } }}
                 >
                   Course Code
                 </TableSortLabel>
               </TableCell>
-              <TableCell sx={{ backgroundColor: '#f5f5f5' }}>
+              <TableCell sx={{ backgroundColor: '#f5f5f5', fontSize: '16px' }}>
                 <TableSortLabel
                   active={orderBy === 'name'}
                   direction={orderBy === 'name' ? order : 'asc'}
                   onClick={() => handleSort('name')}
                   hideSortIcon={false}
-                  // sx={{ '& .MuiTableSortLabel-icon': { opacity: 1 } }}
                 >
                   Course Name
                 </TableSortLabel>
               </TableCell>
-              <TableCell sx={{ backgroundColor: '#f5f5f5' }}>Sem1</TableCell>
-              <TableCell sx={{ backgroundColor: '#f5f5f5' }}>Sem2</TableCell>
-              <TableCell sx={{ backgroundColor: '#f5f5f5' }}>
+              <TableCell sx={{ backgroundColor: '#f5f5f5', fontSize: '16px' }}>Sem1</TableCell>
+              <TableCell sx={{ backgroundColor: '#f5f5f5', fontSize: '16px' }}>Sem2</TableCell>
+              <TableCell sx={{ backgroundColor: '#f5f5f5', fontSize: '16px' }}>
                 <TableSortLabel
                   active={orderBy === 'f'}
                   direction={orderBy === 'f' ? order : 'asc'}
                   onClick={() => handleSort('f')}
                   hideSortIcon={false}
-                  // sx={{ '& .MuiTableSortLabel-icon': { opacity: 1 } }}
                 >
                   F
                 </TableSortLabel>
               </TableCell>
-              <TableCell sx={{ backgroundColor: '#f5f5f5' }}>
+              <TableCell sx={{ backgroundColor: '#f5f5f5', fontSize: '16px' }}>
                 <TableSortLabel
                   active={orderBy === 'wn'}
                   direction={orderBy === 'wn' ? order : 'asc'}
                   onClick={() => handleSort('wn')}
                   hideSortIcon={false}
-                  // sx={{ '& .MuiTableSortLabel-icon': { opacity: 1 } }}
                 >
                   W/N
                 </TableSortLabel>
@@ -120,18 +118,34 @@ const DeferCoursesTable: React.FC = () => {
                 <TableCell>
                   <Checkbox />
                 </TableCell>
-                <TableCell>{row.code}</TableCell>
-                <TableCell>{row.name}</TableCell>
-                <TableCell>{row.sem1 ? '✔' : ''}</TableCell>
-                <TableCell>{row.sem2 ? '✔' : ''}</TableCell>
-                <TableCell>{row.f}</TableCell>
-                <TableCell>{row.wn}</TableCell>
+                <TableCell>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      cursor: 'pointer',
+                      color: 'green',
+                      textDecoration: 'none',
+                      fontSize: '16px', // Increase font size
+                      '&:hover': {
+                        textDecoration: 'underline',
+                      },
+                    }}
+                    onClick={() => navigate(`/course-details/${row.code}`)}
+                  >
+                    {row.code}
+                  </Typography>
+                </TableCell>
+                <TableCell sx={{ fontSize: '16px' }}>{row.name}</TableCell>
+                <TableCell sx={{ fontSize: '16px' }}>{row.sem1 ? '✔' : ''}</TableCell>
+                <TableCell sx={{ fontSize: '16px' }}>{row.sem2 ? '✔' : ''}</TableCell>
+                <TableCell sx={{ fontSize: '16px' }}>{row.f}</TableCell>
+                <TableCell sx={{ fontSize: '16px' }}>{row.wn}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </TableContainer>
-      <Typography variant="caption" sx={{ marginTop: '10px', display: 'block' }}>
+      <Typography variant="caption" sx={{ marginTop: '10px', display: 'block', fontSize: '14px' }}>
         Note: Click on checkbox to assume that this course is available next semester without conflicts for all academic year.
       </Typography>
     </Box>
