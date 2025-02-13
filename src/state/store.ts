@@ -88,6 +88,23 @@
 //           },
 //         ],
 //       },
+//       {
+//         year: 'Fifth Year',
+//         semesters: [
+//           {
+//             studied: false,
+//             subjects: [
+//               { code: 'Test1', name: 'TEST COURSE 1', grade: null, fail: false, withdraw: false, prerequisites: ['01219346-60'] },
+//             ],
+//           },
+//           {
+//             studied: false,
+//             subjects: [
+//               { code: 'Test2', name: 'TEST COURSE 2', grade: null, fail: false, withdraw: false, prerequisites: ['01219346-60', '01219345-60'] },
+//             ],
+//           },
+//         ],
+//       },
 //     ],
 //   };
 
@@ -108,15 +125,15 @@
 //           state.years[yearIndex].semesters[semesterIndex].subjects[subjectIndex];
 //         subject.withdraw = !subject.withdraw; // Toggle withdraw
 //       },
-//       toggleDropSemester: (state, action) => {
-//         const { yearIndex, semesterIndex } = action.payload;
-//         const semester = state.years[yearIndex].semesters[semesterIndex];
-//         semester.dropped = !semester.dropped; // Toggle drop semester
-//       },
+//       // toggleDropSemester: (state, action) => {
+//       //   const { yearIndex, semesterIndex } = action.payload;
+//       //   const semester = state.years[yearIndex].semesters[semesterIndex];
+//       //   semester.dropped = !semester.dropped; // Toggle drop semester
+//       // },
 //     },
 //   });
   
-//   export const { toggleFail, toggleWithdraw, toggleDropSemester } = curriculumSlice.actions;
+//   export const { toggleFail, toggleWithdraw } = curriculumSlice.actions;
 //   export const curriculumReducer = curriculumSlice.reducer;
 
 // export const store = configureStore({

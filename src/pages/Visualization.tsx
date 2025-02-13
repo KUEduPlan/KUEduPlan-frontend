@@ -1,57 +1,96 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 import { useSelector, useDispatch } from "react-redux";
-import { Box, Typography, Button } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Button,
+  CircularProgress,
+  Alert,
+} from "@mui/material";
+import {
+  fetchStudentData,
+  fetchStudyPlan,
+  fetchPrerequisiteCourses,
+  submitDropFailCourses,
+} from "../state/actions";
+import { AppDispatch } from "../state/store";
 import "./visualization.css";
-import { toggleDropSemester } from "../state/store";
+import { toggleDropSemester } from "../state/curriculumSlice";
 
 const nodeWidth = 200;
 const nodeHeight = 100;
 
 const generateRandomPastelColor = (existingColors: string[]) => {
-    let color;
-    do {
-      const hue = Math.floor(Math.random() * 360);
-      const saturation = 70;
-      const lightness = 85;
-      color = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-    } while (existingColors.includes(color));
-    return color;
-  };
-  
-  const getSemesterColors = (numYears: number) => {
-    const colors = [
-      "#EFF5EC", // Year 1 Semester 1
-      "#F5EACF", // Year 1 Semester 2
-      "#CFEDF4", // Year 2 Semester 1
-      "#F4DDCF", // Year 2 Semester 2
-      "#E0CFF5", // Year 3 Semester 1
-      "#D5FEF6", // Year 3 Semester 2
-      "#F8E7F6", // Year 4 Semester 1
-      "#C4D9FF", // Year 4 Semester 2
-    ];
-  
-    const existingColors = [...colors];
-    for (let i = colors.length / 2; i < numYears; i++) {
-      colors.push(generateRandomPastelColor(existingColors));
-      colors.push(generateRandomPastelColor(existingColors));
-    }
-  
-    return colors;
-  };
+  let color;
+  do {
+    const hue = Math.floor(Math.random() * 360);
+    const saturation = 70;
+    const lightness = 85;
+    color = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  } while (existingColors.includes(color));
+  return color;
+};
+
+const getSemesterColors = (numYears: number) => {
+  const colors = [
+    "#EFF5EC", // Year 1 Semester 1
+    "#F5EACF", // Year 1 Semester 2
+    "#CFEDF4", // Year 2 Semester 1
+    "#F4DDCF", // Year 2 Semester 2
+    "#E0CFF5", // Year 3 Semester 1
+    "#D5FEF6", // Year 3 Semester 2
+    "#F8E7F6", // Year 4 Semester 1
+    "#C4D9FF", // Year 4 Semester 2
+  ];
+
+  const existingColors = [...colors];
+  for (let i = colors.length / 2; i < numYears; i++) {
+    colors.push(generateRandomPastelColor(existingColors));
+    colors.push(generateRandomPastelColor(existingColors));
+  }
+
+  return colors;
+};
 
 const VisualizationPage: React.FC = () => {
   const svgRef = useRef<SVGSVGElement>(null);
+
+  const dispatch: AppDispatch = useDispatch();
+  const STUDENTID = 1;
+
+  // Access Redux state
   const curriculum = useSelector((state: any) => state.curriculum.years);
   const studentInfo = useSelector((state: any) => state.curriculum.studentInfo);
+  const prerequisites = useSelector(
+    (state: any) => state.curriculum.prerequisites
+  );
+  const loading = useSelector((state: any) => state.curriculum.loading);
+  const error = useSelector((state: any) => state.curriculum.error);
+
+  console.log("curri", curriculum);
+  console.log("std info", studentInfo);
+  console.log("pre info", prerequisites);
+
   const numYears = curriculum.length;
   const semesterColors = getSemesterColors(numYears);
-  const dispatch = useDispatch();
 
   const [nodes, setNodes] = useState<any[]>([]);
   const [edges, setEdges] = useState<any[]>([]);
   const [focusNode, setFocusNode] = useState<string | null>(null);
   const [isAnyCheckboxSelected, setIsAnyCheckboxSelected] = useState(false);
+  const [dropFailCourses, setDropFailCourses] = useState<any[]>([]);
+
+  const fetchInitialData = (studentId: number) => {
+    dispatch(fetchStudentData(studentId));
+    dispatch(fetchStudyPlan(studentId));
+    // dispatch(fetchPrerequisiteCourses(studentId));
+  };
+
+  useEffect(() => {
+    const studentId = STUDENTID;
+    fetchInitialData(studentId);
+  }, [dispatch]);
 
   // Helper function to calculate node positions
   const getNodePosition = (node: any) => {
@@ -62,12 +101,27 @@ const VisualizationPage: React.FC = () => {
 
   // Extract nodes and edges from curriculum data
   const extractNodesAndEdges = () => {
+    if (!curriculum || curriculum.length === 0) {
+      console.warn("Curriculum is empty or undefined.");
+      return;
+    }
+
     const extractedNodes: any[] = [];
     const extractedEdges: any[] = [];
 
     let level = 0;
     curriculum.forEach((year: any, yearIndex: number) => {
+      if (!year.semesters) {
+        console.warn(`Year ${year.year} has no semesters.`);
+        return;
+      }
+
       year.semesters.forEach((semester: any, semesterIndex: number) => {
+        if (!semester.subjects) {
+          console.warn(`Semester ${semester.semester} has no subjects.`);
+          return;
+        }
+
         semester.subjects.forEach((subject: any, layer: number) => {
           extractedNodes.push({
             id: subject.code,
@@ -81,14 +135,24 @@ const VisualizationPage: React.FC = () => {
             semesterIndex,
           });
 
-          subject.prerequisites.forEach((prerequisite: string) => {
-            extractedEdges.push({
-              source: prerequisite,
-              target: subject.code,
+          if (subject.prerequisites) {
+            subject.prerequisites.forEach((prerequisite: string) => {
+              extractedEdges.push({
+                source: prerequisite,
+                target: subject.code,
+              });
             });
-          });
+          }
         });
         level++;
+      });
+    });
+
+    // Add prerequisite edges
+    prerequisites.forEach((prerequisite: any) => {
+      extractedEdges.push({
+        source: prerequisite.prerequisite.id,
+        target: prerequisite.current.id,
       });
     });
 
@@ -107,7 +171,9 @@ const VisualizationPage: React.FC = () => {
   };
 
   const resetView = () => {
+    const studentId = STUDENTID; 
     setFocusNode(null);
+    fetchInitialData(studentId);
   };
 
   const handleDropSemester = (yearIndex: number, semesterIndex: number) => {
@@ -124,13 +190,13 @@ const VisualizationPage: React.FC = () => {
     const anySelected = updatedNodes.some((node) => node.fail || node.withdraw);
     setIsAnyCheckboxSelected(anySelected);
   };
-  
-  const handleWithdrawToggle = (nodeId: string) => {
+
+  const handleWithdrawToggle = (nodeId: any) => {
     const updatedNodes = nodes.map((node) =>
       node.id === nodeId ? { ...node, withdraw: !node.withdraw } : node
     );
     setNodes(updatedNodes);
-  
+
     // Check if any checkbox is selected
     const anySelected = updatedNodes.some((node) => node.fail || node.withdraw);
     setIsAnyCheckboxSelected(anySelected);
@@ -138,7 +204,7 @@ const VisualizationPage: React.FC = () => {
 
   const renderNodes = (svg: any) => {
     svg.selectAll(".node").remove();
-  
+
     const nodeGroup = svg
       .selectAll(".node")
       .data(nodes)
@@ -149,7 +215,7 @@ const VisualizationPage: React.FC = () => {
         return `translate(${x}, ${y})`;
       })
       .on("click", (event: any, d: any) => handleNodeClick(d.id));
-  
+
     // Draw rectangles for nodes with shadow
     nodeGroup
       .append("rect")
@@ -167,7 +233,7 @@ const VisualizationPage: React.FC = () => {
       })
       .attr("opacity", (d: any) => (focusNode && focusNode !== d.id ? 0.5 : 1))
       .attr("filter", "url(#shadow)");
-  
+
     // Add course code
     nodeGroup
       .append("text")
@@ -178,7 +244,7 @@ const VisualizationPage: React.FC = () => {
       .attr("font-weight", "bold")
       .attr("fill", "black")
       .text((d: any) => d.id);
-  
+
     // Add course name
     nodeGroup
       .append("foreignObject")
@@ -195,7 +261,7 @@ const VisualizationPage: React.FC = () => {
       .style("white-space", "normal")
       .style("word-wrap", "break-word")
       .text((d: any) => d.subject);
-  
+
     // Add grade
     nodeGroup
       .append("text")
@@ -207,7 +273,7 @@ const VisualizationPage: React.FC = () => {
       .attr("fill", (d: any) => (d.grade === "F" ? "red" : "gray"))
       .attr("text-anchor", "end")
       .text((d: any) => (d.grade ? d.grade : ""));
-  
+
     // Add F and W/N checkboxes below the course box
     nodeGroup
       .append("foreignObject")
@@ -282,13 +348,13 @@ const VisualizationPage: React.FC = () => {
     svg.selectAll(".semester-label").remove();
     svg.selectAll(".semester-background").remove();
     svg.selectAll(".year-background").remove();
-  
+
     curriculum.forEach((year: any, yearIndex: number) => {
       const yearX = yearIndex * nodeWidth * 4;
       const yearY = 50;
       const yearWidth = nodeWidth * 4;
       const yearHeight = 50;
-  
+
       // Add dark-gray background for year labels
       svg
         .append("rect")
@@ -298,7 +364,7 @@ const VisualizationPage: React.FC = () => {
         .attr("width", yearWidth)
         .attr("height", yearHeight)
         .attr("fill", "#E0E0E0");
-  
+
       // Add year label
       svg
         .append("text")
@@ -310,13 +376,13 @@ const VisualizationPage: React.FC = () => {
         .attr("fill", "black")
         .attr("text-anchor", "middle")
         .text(year.year);
-  
+
       year.semesters.forEach((semester: any, semesterIndex: number) => {
         const x = (yearIndex * 2 + semesterIndex) * nodeWidth * 2;
         const y = 100;
         const semesterWidth = nodeWidth * 2;
         const semesterHeight = nodes.length * nodeHeight * 1.75 + 150;
-  
+
         // Add alternating background color for semesters
         svg
           .append("rect")
@@ -327,7 +393,7 @@ const VisualizationPage: React.FC = () => {
           .attr("height", semesterHeight)
           .attr("fill", semesterIndex % 2 === 0 ? "#E0E0E0" : "#F5F5F5")
           .attr("opacity", 0.5);
-  
+
         // Add semester checkbox
         svg
           .append("foreignObject")
@@ -346,12 +412,14 @@ const VisualizationPage: React.FC = () => {
   };
 
   useEffect(() => {
-    extractNodesAndEdges();
+    if (curriculum.length > 0) {
+      extractNodesAndEdges();
+    }
   }, [curriculum]);
 
   useEffect(() => {
     const svg = d3.select(svgRef.current);
-  
+
     const defs = svg.append("defs");
     const filter = defs.append("filter").attr("id", "shadow");
     filter
@@ -361,18 +429,48 @@ const VisualizationPage: React.FC = () => {
       .attr("stdDeviation", 2)
       .attr("flood-color", "#000")
       .attr("flood-opacity", 0.2);
-  
+
     renderLabels(svg);
     renderNodes(svg);
     renderEdges(svg);
-  
+
     const maxY = d3.max(nodes, (node: any) => {
       const [, y] = getNodePosition(node);
       return y + nodeHeight + 50;
     });
-  
+
     svg.attr("height", maxY || 500);
   }, [nodes, edges, focusNode]);
+
+  if (loading) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "80vh",
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "80vh",
+        }}
+      >
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ padding: 3 }}>
@@ -402,31 +500,31 @@ const VisualizationPage: React.FC = () => {
       </Box>
       <Box
         sx={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 2,
-            marginTop: 2,
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 2,
+          marginTop: 2,
         }}
-        >
+      >
         <Button
-            variant="contained"
-            onClick={resetView}
-            sx={{ backgroundColor: "#256E65", color: "#fff" }}
+          variant="contained"
+          onClick={resetView}
+          sx={{ backgroundColor: "#256E65", color: "#fff" }}
         >
-            Reset View
+          Reset View
         </Button>
         <Button
-            variant="contained"
-            disabled={!isAnyCheckboxSelected}
-            sx={{
+          variant="contained"
+          disabled={!isAnyCheckboxSelected}
+          sx={{
             backgroundColor: isAnyCheckboxSelected ? "#1976d2" : "#ccc",
             color: "#fff",
             }}
             onClick={() => alert("Simulate button clicked!")}
         >
-            Simulate
+          Simulate
         </Button>
-    </Box>
+      </Box>
     </Box>
   );
 };

@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { fetchStudentData, fetchStudyPlan } from './actions';
+import { fetchStudentData, fetchStudyPlan, fetchPrerequisiteCourses, submitDropFailCourses } from './actions';
 
 interface Subject {
   fail: boolean;
@@ -18,6 +18,7 @@ interface Year {
 interface CurriculumState {
   studentInfo: Record<string, any>;
   years: Year[];
+  prerequisites: any[];
   loading: boolean;
   error: string | null;
 }
@@ -25,6 +26,7 @@ interface CurriculumState {
 export const initialState: CurriculumState = {
   studentInfo: {},
   years: [],
+  prerequisites: [],
   loading: false,
   error: null,
 };
@@ -81,6 +83,38 @@ const curriculumSlice = createSlice({
         }));
       })
       .addCase(fetchStudyPlan.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      });
+    builder
+      .addCase(fetchPrerequisiteCourses.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchPrerequisiteCourses.fulfilled, (state, action) => {
+        state.loading = false;
+        state.prerequisites = action.payload;
+      })
+      .addCase(fetchPrerequisiteCourses.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      });
+    builder
+      .addCase(submitDropFailCourses.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(submitDropFailCourses.fulfilled, (state, action) => {
+        state.loading = false;
+        state.years = action.payload.map((year: any) => ({
+          ...year,
+          semesters: year.semesters.map((semester: any) => ({
+            ...semester,
+            dropped: semester.dropped ?? false,
+          })),
+        }));
+      })
+      .addCase(submitDropFailCourses.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       });
