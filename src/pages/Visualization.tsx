@@ -16,7 +16,6 @@ import {
 } from "../state/actions";
 import { AppDispatch } from "../state/store";
 import "./visualization.css";
-import { toggleDropSemester } from "../state/curriculumSlice";
 
 const nodeWidth = 200;
 const nodeHeight = 100;
@@ -34,14 +33,14 @@ const generateRandomPastelColor = (existingColors: string[]) => {
 
 const getSemesterColors = (numYears: number) => {
   const colors = [
-    "#EFF5EC", // Year 1 Semester 1
-    "#F5EACF", // Year 1 Semester 2
-    "#CFEDF4", // Year 2 Semester 1
-    "#F4DDCF", // Year 2 Semester 2
-    "#E0CFF5", // Year 3 Semester 1
-    "#D5FEF6", // Year 3 Semester 2
-    "#F8E7F6", // Year 4 Semester 1
-    "#C4D9FF", // Year 4 Semester 2
+    "#DDFFF6",
+    "#D6F1FF",
+    "#CCC9FF",
+    "#EFD3FF",
+    "#FFB4CF",
+    "#BAF8FD",
+    "#FFD7AF",
+    "#DAAEEA",
   ];
 
   const existingColors = [...colors];
@@ -59,7 +58,6 @@ const VisualizationPage: React.FC = () => {
   const dispatch: AppDispatch = useDispatch();
   const STUDENTID = 1;
 
-  // Access Redux state
   const curriculum = useSelector((state: any) => state.curriculum.years);
   const studentInfo = useSelector((state: any) => state.curriculum.studentInfo);
   const prerequisites = useSelector(
@@ -80,11 +78,20 @@ const VisualizationPage: React.FC = () => {
   const [focusNode, setFocusNode] = useState<string | null>(null);
   const [isAnyCheckboxSelected, setIsAnyCheckboxSelected] = useState(false);
   const [dropFailCourses, setDropFailCourses] = useState<any[]>([]);
+  const [semesterDropStatus, setSemesterDropStatus] = useState<{
+    [key: string]: boolean;
+  }>({});
 
-  const fetchInitialData = (studentId: number) => {
-    dispatch(fetchStudentData(studentId));
-    dispatch(fetchStudyPlan(studentId));
-    // dispatch(fetchPrerequisiteCourses(studentId));
+  const fetchInitialData = async (studentId: number) => {
+    try {
+      await dispatch(fetchStudentData(studentId)).unwrap();
+      await dispatch(fetchStudyPlan(studentId)).unwrap();
+      await dispatch(fetchPrerequisiteCourses(studentId)).unwrap();
+
+      console.log("Both APIs fetched successfully!");
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
   };
 
   useEffect(() => {
@@ -92,7 +99,6 @@ const VisualizationPage: React.FC = () => {
     fetchInitialData(studentId);
   }, [dispatch]);
 
-  // Helper function to calculate node positions
   const getNodePosition = (node: any) => {
     const x = node.level * nodeWidth * 2 + nodeWidth / 2;
     const y = node.layer * nodeHeight * 1.75 + 150;
@@ -101,6 +107,7 @@ const VisualizationPage: React.FC = () => {
 
   // Extract nodes and edges from curriculum data
   const extractNodesAndEdges = () => {
+    console.log("Extracting nodes and edges...");
     if (!curriculum || curriculum.length === 0) {
       console.warn("Curriculum is empty or undefined.");
       return;
@@ -134,27 +141,24 @@ const VisualizationPage: React.FC = () => {
             year: year.year,
             semesterIndex,
           });
-
-          if (subject.prerequisites) {
-            subject.prerequisites.forEach((prerequisite: string) => {
-              extractedEdges.push({
-                source: prerequisite,
-                target: subject.code,
-              });
-            });
-          }
         });
         level++;
       });
     });
 
-    // Add prerequisite edges
-    prerequisites.forEach((prerequisite: any) => {
-      extractedEdges.push({
-        source: prerequisite.prerequisite.id,
-        target: prerequisite.current.id,
+    if (prerequisites && prerequisites.length > 0) {
+      prerequisites.forEach((relation: any) => {
+        extractedEdges.push({
+          source: relation.prerequisite.id,
+          target: relation.current.id,
+        });
       });
-    });
+    } else {
+      console.warn("No prerequisites data available.");
+    }
+
+    console.log("Extracted nodes:", extractedNodes);
+    console.log("Extracted edges:", extractedEdges);
 
     setNodes(extractedNodes);
     setEdges(extractedEdges);
@@ -171,35 +175,126 @@ const VisualizationPage: React.FC = () => {
   };
 
   const resetView = () => {
-    const studentId = STUDENTID; 
+    const studentId = STUDENTID;
     setFocusNode(null);
     fetchInitialData(studentId);
   };
 
   const handleDropSemester = (yearIndex: number, semesterIndex: number) => {
-    dispatch(toggleDropSemester({ yearIndex, semesterIndex }));
+    const semester = curriculum[yearIndex].semesters[semesterIndex];
+
+    const allDropped = semester.subjects.every((subject: any) =>
+      dropFailCourses.some(
+        (course) => course.CID === subject.code && course.Type === "Dropped"
+      )
+    );
+
+    const updatedCourses = semester.subjects
+      .filter((subject: any) => subject.grade === "-")
+      .map((subject: any) => ({
+        CID: subject.code,
+        Year: curriculum[yearIndex].year,
+        Sem: semester.semester,
+        Type: "Dropped",
+      }));
+
+    if (allDropped) {
+      // If all courses are already dropped, uncheck the semester and all courses
+      setDropFailCourses((prev) =>
+        prev.filter(
+          (course) =>
+            !updatedCourses.some(
+              (updatedCourse: { CID: any }) => updatedCourse.CID === course.CID
+            )
+        )
+      );
+    } else {
+      setDropFailCourses((prev) => {
+        const filteredPrev = prev.filter(
+          (course) =>
+            !updatedCourses.some(
+              (updatedCourse: { CID: any }) => updatedCourse.CID === course.CID
+            )
+        );
+        return [...filteredPrev, ...updatedCourses];
+      });
+    }
   };
 
-  const handleFailToggle = (nodeId: string) => {
+  // Handle individual course fail/withdraw toggle
+  const handleCourseToggle = (nodeId: string, type: "Failed" | "Dropped") => {
+    const updatedCourse = nodes.find((node) => node.id === nodeId);
+
+    if (!updatedCourse) {
+      console.error(`Course with ID ${nodeId} not found.`);
+      return;
+    }
+
+    // Update the nodes state
     const updatedNodes = nodes.map((node) =>
-      node.id === nodeId ? { ...node, fail: !node.fail } : node
+      node.id === nodeId
+        ? {
+            ...node,
+            fail: type === "Failed" ? !node.fail : false,
+            withdraw: type === "Dropped" ? !node.withdraw : false,
+          }
+        : node
     );
     setNodes(updatedNodes);
-  
-    // Check if any checkbox is selected
-    const anySelected = updatedNodes.some((node) => node.fail || node.withdraw);
-    setIsAnyCheckboxSelected(anySelected);
+
+    // Update dropFailCourses state
+    setDropFailCourses((prev) => {
+      const filteredPrev = prev.filter((course) => course.CID !== nodeId);
+
+      if (
+        (type === "Failed" && !updatedCourse.fail) ||
+        (type === "Dropped" && !updatedCourse.withdraw)
+      ) {
+        return [
+          ...filteredPrev,
+          {
+            CID: nodeId,
+            Year: updatedCourse.year,
+            Sem: updatedCourse.semesterIndex,
+            Type: type,
+          },
+        ];
+      }
+      return filteredPrev;
+    });
   };
 
-  const handleWithdrawToggle = (nodeId: any) => {
-    const updatedNodes = nodes.map((node) =>
-      node.id === nodeId ? { ...node, withdraw: !node.withdraw } : node
-    );
-    setNodes(updatedNodes);
+  // Handle "SIMULATE" button click
+  const handleSimulate = async () => {
+    try {
+      // Ensure dropFailCourses is an array and fields have correct types
+      const formattedCourses = dropFailCourses.map((course) => ({
+        CID: course.CID,
+        Year: parseInt(course.Year, 10),
+        Sem: course.Sem.toString(),
+        Type: course.Type,
+      }));
 
-    // Check if any checkbox is selected
-    const anySelected = updatedNodes.some((node) => node.fail || node.withdraw);
-    setIsAnyCheckboxSelected(anySelected);
+      console.log("Submitting drop/fail courses:", formattedCourses);
+
+      const response = await dispatch(
+        submitDropFailCourses({
+          studentId: STUDENTID,
+          courses: formattedCourses,
+        })
+      ).unwrap();
+
+      // Update curriculum with the response
+      const updatedCurriculum = response.map((course: any) => ({
+        ...course,
+        grade: course.GRADE,
+      }));
+      setNodes(updatedCurriculum);
+      setDropFailCourses([]);
+      setIsAnyCheckboxSelected(false);
+    } catch (error) {
+      console.error("Failed to submit drop/fail courses:", error);
+    }
   };
 
   const renderNodes = (svg: any) => {
@@ -214,9 +309,10 @@ const VisualizationPage: React.FC = () => {
         const [x, y] = getNodePosition(d);
         return `translate(${x}, ${y})`;
       })
+      .attr("filter", "url(#shadow)")
       .on("click", (event: any, d: any) => handleNodeClick(d.id));
 
-    // Draw rectangles for nodes with shadow
+    // Draw rectangles for nodes
     nodeGroup
       .append("rect")
       .attr("width", nodeWidth)
@@ -253,7 +349,7 @@ const VisualizationPage: React.FC = () => {
       .attr("width", nodeWidth - 20)
       .attr("height", nodeHeight - 50)
       .append("xhtml:div")
-      .style("font-size", "12px")
+      .style("font-size", "13px")
       .style("font-family", "Prompt, Arial, sans-serif")
       .style("color", "gray")
       .style("overflow", "hidden")
@@ -267,41 +363,65 @@ const VisualizationPage: React.FC = () => {
       .append("text")
       .attr("x", nodeWidth - 10)
       .attr("y", 15)
-      .attr("font-size", "12px")
+      .attr("font-size", "14px")
       .attr("font-family", "Prompt, Arial, sans-serif")
       .attr("font-weight", "bold")
       .attr("fill", (d: any) => (d.grade === "F" ? "red" : "gray"))
       .attr("text-anchor", "end")
       .text((d: any) => (d.grade ? d.grade : ""));
 
-    // Add F and W/N checkboxes below the course box
-    nodeGroup
+    // Add F and W/N checkboxes
+    const checkboxGroup = nodeGroup
       .append("foreignObject")
       .attr("x", 10)
       .attr("y", nodeHeight + 5)
       .attr("width", nodeWidth - 20)
       .attr("height", 30)
       .append("xhtml:div")
+      .style("display", (d: any) => (d.grade === "-" ? "flex" : "none"))
+      .style("justify-content", "space-between");
+
+    // Add F checkbox
+    checkboxGroup
+      .append("label")
       .style("display", "flex")
-      .style("justify-content", "flex-end")
-      .style("gap", "5px")
       .style("align-items", "center")
-      .style("font-size", "10px")
-      .style("font-family", "Prompt, Arial, sans-serif")
-      .html((d: any) => `
-        <label style="display: flex; align-items: center;">
-          <input type="checkbox" style="width: 12px; height: 12px; margin-right: 4px;" ${
-            d.fail ? "checked" : ""
-          } onchange="handleFailToggle('${d.id}')" />
+      .html((d: any) => {
+        const isFailed = dropFailCourses.some(
+          (course) => course.CID === d.id && course.Type === "Failed"
+        );
+        return `
+          <input type="checkbox" ${isFailed ? "checked" : ""} />
           F
-        </label>
-        <label style="display: flex; align-items: center;">
-          <input type="checkbox" style="width: 12px; height: 12px; margin-right: 4px;" ${
-            d.withdraw ? "checked" : ""
-          } onchange="handleWithdrawToggle('${d.id}')" />
+        `;
+      })
+      .on("click", (event: any) => {
+        event.stopPropagation();
+      })
+      .on("change", (event: any, d: any) => {
+        handleCourseToggle(d.id, "Failed");
+      });
+
+    // Add W/N checkbox
+    checkboxGroup
+      .append("label")
+      .style("display", "flex")
+      .style("align-items", "center")
+      .html((d: any) => {
+        const isDropped = dropFailCourses.some(
+          (course) => course.CID === d.id && course.Type === "Dropped"
+        );
+        return `
+          <input type="checkbox" ${isDropped ? "checked" : ""} />
           W/N
-        </label>
-      `);
+        `;
+      })
+      .on("click", (event: any) => {
+        event.stopPropagation();
+      })
+      .on("change", (event: any, d: any) => {
+        handleCourseToggle(d.id, "Dropped");
+      });
   };
 
   // Render edges
@@ -334,17 +454,37 @@ const VisualizationPage: React.FC = () => {
       .attr("fill", "none")
       .attr("stroke", (d: any) => {
         if (!focusNode) return "none";
-        if (focusNode === d.target || focusNode === d.source) {
+        if (focusNode === d.source) {
           const targetNode = nodes.find((n) => n.id === d.target);
           return targetNode ? targetNode.color : "gray";
         }
+        if (focusNode === d.target) {
+          const sourceNode = nodes.find((n) => n.id === d.source);
+          return sourceNode ? sourceNode.color : "gray";
+        }
         return "none";
       })
-      .attr("stroke-width", 2);
+      .attr("stroke-width", 3);
   };
 
   // Render year and semester labels with checkboxes
   const renderLabels = (svg: any) => {
+    if (!curriculum || curriculum.length === 0) {
+      console.warn("Curriculum is empty or undefined.");
+      return;
+    }
+
+    if (!nodes || nodes.length === 0) {
+      console.warn("Nodes are empty or undefined.");
+      return;
+    }
+
+    if (!svg || svg.empty()) {
+      console.error("SVG reference is null or not found.");
+      return;
+    }
+
+    // Remove existing labels and backgrounds
     svg.selectAll(".semester-label").remove();
     svg.selectAll(".semester-background").remove();
     svg.selectAll(".year-background").remove();
@@ -375,7 +515,7 @@ const VisualizationPage: React.FC = () => {
         .attr("font-weight", "bold")
         .attr("fill", "black")
         .attr("text-anchor", "middle")
-        .text(year.year);
+        .text(`ปีการศึกษา 25${year.year}`);
 
       year.semesters.forEach((semester: any, semesterIndex: number) => {
         const x = (yearIndex * 2 + semesterIndex) * nodeWidth * 2;
@@ -391,31 +531,77 @@ const VisualizationPage: React.FC = () => {
           .attr("y", y - 50)
           .attr("width", semesterWidth)
           .attr("height", semesterHeight)
-          .attr("fill", semesterIndex % 2 === 0 ? "#E0E0E0" : "#F5F5F5")
+          .attr("fill", semesterIndex % 2 === 0 ? "#E0E0E0" : "#E8E8E8")
           .attr("opacity", 0.5);
 
+        const hasDroppableCourses = semester.subjects.some(
+          (subject: any) => subject.grade === "-"
+        );
+
+        if (!hasDroppableCourses) {
+          return;
+        }
+
         // Add semester checkbox
-        svg
+        const checkboxGroup = svg
           .append("foreignObject")
           .attr("x", x + semesterWidth / 2 - 75)
           .attr("y", y - 20)
           .attr("width", 150)
           .attr("height", 30)
           .append("xhtml:div")
+          .style("display", "flex")
+          .style("align-items", "center")
+          .style("justify-content", "center");
+
+        if (!checkboxGroup || checkboxGroup.empty()) {
+          console.error("Failed to create checkbox group.");
+          return;
+        }
+
+        // Use React state to determine the `checked` state
+        const isChecked = semester.subjects.every((subject: any) =>
+          dropFailCourses.some(
+            (course) => course.CID === subject.code && course.Type === "Dropped"
+          )
+        );
+
+        // Add semester label and checkbox
+        checkboxGroup
+          .append("label")
+          .style("display", "flex")
+          .style("align-items", "center")
           .html(
-            `<label><input type="checkbox" ${
-              semester.dropped ? "checked" : ""
-            } onchange="handleDropSemester(${yearIndex}, ${semesterIndex})" /> Drop Semester</label>`
-          );
+            `<input type="checkbox" ${
+              isChecked ? "checked" : ""
+            } /> Drop Semester`
+          )
+          .on("change", () => {
+            handleDropSemester(yearIndex, semesterIndex);
+          });
       });
     });
   };
 
   useEffect(() => {
+    const svg = d3.select(svgRef.current);
+    svg.selectAll("*").remove();
+
+    renderLabels(svg);
+    renderNodes(svg);
+    renderEdges(svg);
+  }, [dropFailCourses, focusNode]);
+
+  useEffect(() => {
     if (curriculum.length > 0) {
+      console.log("Curriculum data for rendering nodes:", curriculum);
       extractNodesAndEdges();
     }
-  }, [curriculum]);
+
+    if (prerequisites.length === 0) {
+      console.warn("No prerequisites data available.");
+    }
+  }, [curriculum, prerequisites]);
 
   useEffect(() => {
     const svg = d3.select(svgRef.current);
@@ -474,7 +660,12 @@ const VisualizationPage: React.FC = () => {
 
   return (
     <Box sx={{ padding: 3 }}>
-      <Typography variant="h4" gutterBottom>
+      <Typography
+        variant="h4"
+        fontFamily={"Prompt, Arial, sans-serif"}
+        fontWeight={"bold"}
+        gutterBottom
+      >
         Plan and Visualize
       </Typography>
       <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -517,10 +708,10 @@ const VisualizationPage: React.FC = () => {
           variant="contained"
           disabled={!isAnyCheckboxSelected}
           sx={{
-            backgroundColor: isAnyCheckboxSelected ? "#1976d2" : "#ccc",
+            backgroundColor: isAnyCheckboxSelected ? "#256E65" : "#ccc",
             color: "#fff",
-            }}
-            onClick={() => alert("Simulate button clicked!")}
+          }}
+          onClick={handleSimulate}
         >
           Simulate
         </Button>

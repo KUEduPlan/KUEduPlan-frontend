@@ -26,7 +26,7 @@ const Header: React.FC = () => {
           </Typography>
           <Typography sx={{ color: "white" }}>Contact</Typography>
           <Typography sx={{ color: "white" }}>
-            {student?.DID} {student?.NAME}
+            1 {student?.StdFirstName} {student?.StdLastName}
           </Typography>
         </Box>
       </Toolbar>

@@ -25,8 +25,17 @@ const transformStudyPlan = (studyPlan: any[]) => {
   const groupedData: { [key: string]: any } = {};
 
   studyPlan.forEach((course) => {
-    const year = course.YEAR;
-    const semester = course.SEM;
+    let year = course.YEAR.toString().length === 4
+      ? course.YEAR.toString().slice(-2) // Take the last 2 digits
+      : course.YEAR;
+
+    // HARD CODE (NEED TO DELETE AFTER FIX)
+    if (year === "68" || year === "2568") {
+      year = "67";
+    }
+
+    const semester = course.SEM || course.REGISTERSEM;
+    const grade = course.GRADE === "Undefinded" ? "-" : course.GRADE;
 
     if (!groupedData[year]) {
       groupedData[year] = {};
@@ -38,7 +47,7 @@ const transformStudyPlan = (studyPlan: any[]) => {
 
     groupedData[year][semester].push({
       code: course.CID,
-      grade: course.GRADE,
+      grade: grade,
       name: course.CNAME,
     });
   });
@@ -79,11 +88,13 @@ export const fetchPrerequisiteCourses = createAsyncThunk(
   async (studentId: number, { rejectWithValue }) => {
     try {
       const response = await fetch(`${API_BASE_URL}/pre_course/${studentId}`);
-      console.log('prerequisite response', response);
+      console.log('Prerequisite API response:', response);
+
       if (!response.ok) {
         throw new Error(`Failed to fetch prerequisite courses: ${response.statusText}`);
       }
       const data = await response.json();
+      console.log('Prerequisite data:', data);
 
       // Filter out duplicate sets
       const uniqueData = Array.from(
@@ -112,23 +123,43 @@ export const fetchPrerequisiteCourses = createAsyncThunk(
         },
       }));
     } catch (error: any) {
+      console.error('Error fetching prerequisites:', error);
       return rejectWithValue(error.message);
     }
   }
 );
 
+
 export const submitDropFailCourses = createAsyncThunk(
   'curriculum/submitDropFailCourses',
   async ({ studentId, courses }: { studentId: number; courses: any[] }, { rejectWithValue }) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/submit_drop_fail_course`, {
+      // Filter out invalid or duplicate courses
+      const filteredCourses = courses.filter((course, index, self) => {
+        return index === self.findIndex((c) => c.CID === course.CID);
+      });
+
+      const formattedCourses = filteredCourses.map((course) => ({
+        CID: course.CID,
+        Year: parseInt(course.Year, 10),
+        Sem: course.Sem.toString(),
+        Type: course.Type,
+      }));
+
+      console.log("Submitting to endpoint:", `${API_BASE_URL}/submit_drop_fail_course/${studentId}`);
+      console.log("Filtered and Formatted Request Body:", {
+        StdID: studentId,
+        Courses: formattedCourses,
+      });
+
+      const response = await fetch(`${API_BASE_URL}/submit_drop_fail_course/${studentId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           StdID: studentId,
-          Courses: courses,
+          Courses: formattedCourses,
         }),
       });
 
