@@ -2,6 +2,33 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 
 const API_BASE_URL = 'http://localhost:8000';
 
+export const login = createAsyncThunk(
+  'auth/login',
+  async ({ username, password }: { username: string; password: string }, { rejectWithValue }) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ Username: username, Password: password }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Login failed. Please check your credentials.');
+      }
+
+      let studentId = await response.text();
+      studentId = studentId.replace(/"/g, "");
+      console.log('Cleaned student ID:', studentId);
+      return studentId;
+    } catch (error: any) {
+      console.error('Error during login:', error);
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
 // Fetch student data
 export const fetchStudentData = createAsyncThunk(
   'curriculum/fetchStudentData',
@@ -25,13 +52,18 @@ const transformStudyPlan = (studyPlan: any[]) => {
   const groupedData: { [key: string]: any } = {};
 
   studyPlan.forEach((course) => {
+    console.log('Course year:', course.YEAR);
     let year = course.YEAR.toString().length === 4
-      ? course.YEAR.toString().slice(-2) // Take the last 2 digits
+      ? course.YEAR.toString().slice(-2)
       : course.YEAR;
 
     // HARD CODE (NEED TO DELETE AFTER FIX)
-    if (year === "68" || year === "2568") {
-      year = "67";
+    if (year === 68) {
+      year = 67;
+    }
+
+    if (year === 69) {
+      year = 68;
     }
 
     const semester = course.SEM || course.REGISTERSEM;
@@ -75,6 +107,8 @@ export const fetchStudyPlan = createAsyncThunk(
       const uniqueData = data.filter((course: any, index: number, self: any[]) => {
         return index === self.findIndex((c) => c.CID === course.CID);
       });
+
+      console.log('Unique data:', uniqueData);
 
       return transformStudyPlan(uniqueData);
     } catch (error: any) {
@@ -134,42 +168,34 @@ export const submitDropFailCourses = createAsyncThunk(
   'curriculum/submitDropFailCourses',
   async ({ studentId, courses }: { studentId: number; courses: any[] }, { rejectWithValue }) => {
     try {
-      // Filter out invalid or duplicate courses
-      const filteredCourses = courses.filter((course, index, self) => {
-        return index === self.findIndex((c) => c.CID === course.CID);
-      });
-
-      const formattedCourses = filteredCourses.map((course) => ({
-        CID: course.CID,
-        Year: parseInt(course.Year, 10),
-        Sem: course.Sem.toString(),
-        Type: course.Type,
-      }));
-
-      console.log("Submitting to endpoint:", `${API_BASE_URL}/submit_drop_fail_course/${studentId}`);
-      console.log("Filtered and Formatted Request Body:", {
+      const requestBody = {
         StdID: studentId,
-        Courses: formattedCourses,
-      });
+        Courses: courses,
+      };
+
+      console.log("Request body being sent to API:", requestBody);
 
       const response = await fetch(`${API_BASE_URL}/submit_drop_fail_course/${studentId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          StdID: studentId,
-          Courses: formattedCourses,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
+      console.log("API response status:", response.status);
+
       if (!response.ok) {
+        const errorResponse = await response.json();
+        console.error("API error response:", errorResponse);
         throw new Error(`Failed to submit drop/fail courses: ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log("API response data:", data);
       return data;
     } catch (error: any) {
+      console.error("Error in submitDropFailCourses:", error);
       return rejectWithValue(error.message);
     }
   }
