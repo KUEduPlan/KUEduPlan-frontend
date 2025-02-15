@@ -16,6 +16,7 @@ import {
 } from "../state/actions";
 import { AppDispatch } from "../state/store";
 import "./visualization.css";
+import Swal from "sweetalert2";
 
 const nodeWidth = 200;
 const nodeHeight = 100;
@@ -195,8 +196,24 @@ const VisualizationPage: React.FC = () => {
       // Fetch the original study plan
       await dispatch(fetchStudyPlan(STUDENTID)).unwrap();
       console.log("Study plan reset to original state.");
+
+      // Show success modal
+      Swal.fire({
+        title: "Reset Successful!",
+        text: "The study plan has been reset to its original state.",
+        icon: "success",
+        confirmButtonText: "OK",
+      });
     } catch (error) {
       console.error("Failed to reset view:", error);
+
+      // Show error modal
+      Swal.fire({
+        title: "Reset Failed",
+        text: "An error occurred while resetting the study plan. Please try again.",
+        icon: "error",
+        confirmButtonText: "OK",
+      });
     }
   };
 
@@ -321,8 +338,24 @@ const VisualizationPage: React.FC = () => {
       console.log("Simulation response received:", response);
       setDropFailCourses([]);
       setIsAnyCheckboxSelected(false);
+
+      // Show success modal
+      Swal.fire({
+        title: "Simulation Successful!",
+        text: "The simulation has been completed successfully.",
+        icon: "success",
+        confirmButtonText: "OK",
+      });
     } catch (error) {
       console.error("Failed to submit drop/fail courses:", error);
+
+      // Show error modal
+      Swal.fire({
+        title: "Simulation Failed",
+        text: "An error occurred during the simulation. Please try again.",
+        icon: "error",
+        confirmButtonText: "OK",
+      });
     }
   };
 
