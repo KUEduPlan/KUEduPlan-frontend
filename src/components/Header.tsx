@@ -47,11 +47,18 @@ const Header: React.FC = () => {
               </Typography>
               <Typography
                 component={Link}
+                to="/student-list"
+                sx={{ color: "white", textDecoration: "none" }}
+              >
+                Student List
+              </Typography>
+              {/* <Typography
+                component={Link}
                 to="/course-details"
                 sx={{ color: "white", textDecoration: "none" }}
               >
                 Course Details
-              </Typography>
+              </Typography> */}
               {/* <Button
                 onClick={handleLogout}
                 sx={{ color: "white", textTransform: "none" }}

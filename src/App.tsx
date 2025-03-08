@@ -7,6 +7,7 @@ import VisualizationPage from "./pages/Visualization";
 import LoginPage from "./pages/Login";
 import CourseDetailsPage from "./pages/CourseDetailsPage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import StudentListPage from "./pages/StudentListPage";
 
 const theme = createTheme({
   typography: {
@@ -51,6 +52,14 @@ const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <CourseDetailsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student-list"
+            element={
+              <ProtectedRoute>
+                <StudentListPage />
               </ProtectedRoute>
             }
           />
