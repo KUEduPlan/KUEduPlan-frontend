@@ -3,7 +3,7 @@ version: '3.8'
 services:
 
   frontend:
-    build: ./KUEduPlan-frontend
+    build: .
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     env_file:
