@@ -15,11 +15,13 @@ const theme = createTheme({
   },
 });
 
+const basename = process.env.REACT_APP_BASE_URL || "/";
+
 const App: React.FC = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router>
+      <Router basename={basename}>
         <Header />
         <Routes>
           <Route path="/login" element={<LoginPage />} />

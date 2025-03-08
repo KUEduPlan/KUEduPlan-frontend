@@ -1,6 +1,6 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 export const login = createAsyncThunk(
   'auth/login',
@@ -66,6 +66,7 @@ const transformStudyPlan = (studyPlan: any[]) => {
       year = 68;
     }
 
+    // Use SEM or REGISTERSEM to determine the semester
     const semester = course.SEM || course.REGISTERSEM;
     const grade = course.GRADE === "Undefinded" ? "-" : course.GRADE;
 
@@ -81,14 +82,15 @@ const transformStudyPlan = (studyPlan: any[]) => {
       code: course.CID,
       grade: grade,
       name: course.CNAME,
+      semester: semester, // Add semester information for debugging
     });
   });
 
   return Object.keys(groupedData).map((year) => ({
     year,
-    semesters: Object.keys(groupedData[year]).map((semester) => ({
+    semesters: [1, 2].map((semester) => ({
       semester,
-      subjects: groupedData[year][semester],
+      subjects: groupedData[year][semester] || [], // Ensure both semesters are present
     })),
   }));
 };
@@ -192,6 +194,10 @@ export const submitDropFailCourses = createAsyncThunk(
       }
 
       const data = await response.json();
+      console.log("API response data simulate:", data);
+      // hardcode logic
+      data[data.length - 1].YEAR = 68;
+      data[data.length - 1].SEM = 2;
       console.log("API response data:", data);
       return data;
     } catch (error: any) {
