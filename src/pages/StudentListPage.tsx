@@ -13,7 +13,7 @@ import {
   Select,
   FormControl,
   InputLabel,
-  SelectChangeEvent, // Import SelectChangeEvent
+  SelectChangeEvent,
 } from "@mui/material";
 import { TableSortLabel } from "@mui/material";
 import { useNavigate } from "react-router-dom";
@@ -126,10 +126,10 @@ const StudentListPage: React.FC = () => {
       <Box
         sx={{
           display: "flex",
-          justifyContent: "flex-start", // Align filters to the left
+          justifyContent: "flex-start",
           alignItems: "center",
           marginBottom: "20px",
-          gap: 2, // Add spacing between filters and search bar
+          gap: 2,
         }}
       >
         {/* Department Filter */}
@@ -140,7 +140,7 @@ const StudentListPage: React.FC = () => {
             value={departmentFilter}
             onChange={handleDepartmentFilterChange}
             label="Department"
-            renderValue={(selected) => selected.join(", ")} // Display selected values as a comma-separated string
+            renderValue={(selected) => selected.join(", ")}
           >
             {departments.map((dept) => (
               <MenuItem key={dept} value={dept}>
@@ -158,7 +158,7 @@ const StudentListPage: React.FC = () => {
             value={yearFilter}
             onChange={handleYearFilterChange}
             label="Year"
-            renderValue={(selected) => selected.join(", ")} // Display selected values as a comma-separated string
+            renderValue={(selected) => selected.join(", ")}
           >
             {years.map((year) => (
               <MenuItem key={year} value={year}>
@@ -174,7 +174,7 @@ const StudentListPage: React.FC = () => {
           placeholder="Search by name or surname"
           value={searchText}
           onChange={handleSearchChange}
-          sx={{ flexGrow: 1, maxWidth: 400, marginLeft: "auto" }} // Move search bar to the right
+          sx={{ flexGrow: 1, maxWidth: 400, marginLeft: "auto" }}
         />
       </Box>
 
