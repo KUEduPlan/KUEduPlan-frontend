@@ -319,3 +319,63 @@ export const toggleSemester = createAsyncThunk(
     }
   }
 );
+
+export const fetchAdvisorData = createAsyncThunk(
+  'advisor/fetchAdvisorData',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/advior_data`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch advisor data');
+      }
+
+      const data = await response.json();
+
+      console.log('Advisor data:', data);
+
+      const advisorData = data.map((advisor: any) => ({
+        advisor_code: advisor.advisor_code,
+        first_name_th: advisor.first_name_th,
+        last_name_th: advisor.last_name_th,
+        plan_id: advisor.plan_id,
+      }));
+
+      return advisorData;
+    } catch (error: any) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const fetchStudentList = createAsyncThunk(
+  'advisor/fetchStudentList',
+  async (advisorCode: string, { rejectWithValue }) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/advisee_list_data/${advisorCode}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ advisor_code: advisorCode }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch student list');
+      }
+
+      const data = await response.json();
+
+      const studentList = data.map((student: any) => ({
+        id: student.StdID,
+        name: student.StdFirstName,
+        surname: student.StdLastName,
+        year: student.StdRegisterYear,
+      }));
+
+      return studentList;
+    } catch (error: any) {
+      return rejectWithValue(error.message);
+    }
+  }
+);

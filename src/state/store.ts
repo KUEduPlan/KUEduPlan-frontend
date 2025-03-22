@@ -2,11 +2,13 @@ import { configureStore } from '@reduxjs/toolkit';
 import { TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux';
 import { curriculumReducer } from './curriculumSlice';
 import openPlanReducer from './openPlanSlice';
+import advisorReducer from './advisorSlice';
 
 export const store = configureStore({
   reducer: {
-    curriculum: curriculumReducer,
+    curriculum: curriculumReducer,  
     openPlan: openPlanReducer,
+    advisor: advisorReducer,
   },
 });
 

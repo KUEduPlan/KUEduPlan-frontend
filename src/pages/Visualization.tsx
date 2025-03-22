@@ -17,6 +17,7 @@ import {
 import { AppDispatch } from "../state/store";
 import "./visualization.css";
 import Swal from "sweetalert2";
+import { useParams } from "react-router-dom";
 
 const nodeWidth = 200;
 const nodeHeight = 100;
@@ -57,6 +58,8 @@ const getSemesterColors = (numYears: number) => {
 const VisualizationPage: React.FC = () => {
   const svgRef = useRef<SVGSVGElement>(null);
 
+  const { studentId } = useParams<{ studentId: string }>();
+  console.log("studentId", studentId);
   const dispatch: AppDispatch = useDispatch();
 
   const curriculum = useSelector((state: any) => state.curriculum.years);
@@ -66,10 +69,6 @@ const VisualizationPage: React.FC = () => {
   );
   const loading = useSelector((state: any) => state.curriculum.loading);
   const error = useSelector((state: any) => state.curriculum.error);
-
-  // console.log("curri", curriculum);
-  // console.log("std info", studentInfo);
-  // console.log("pre info", prerequisites);
 
   const numYears = curriculum.length;
   const semesterColors = getSemesterColors(numYears);
@@ -89,31 +88,57 @@ const VisualizationPage: React.FC = () => {
 
   const STUDENTID = loggedInStudentId
 
+  // Advisor case
   useEffect(() => {
-    const fetchInitialData = async (studentId: number) => {
-      try {
-        await dispatch(fetchStudentData(studentId)).unwrap();
-        await dispatch(fetchStudyPlan(studentId)).unwrap();
-        await dispatch(fetchPrerequisiteCourses(studentId)).unwrap();
-        console.log("All data fetched successfully!");
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      }
-    };
-    console.log("Type of loggedInStudentId:", typeof loggedInStudentId);
-  
-    if (loggedInStudentId) {
-      // const studentId = parseInt(loggedInStudentId, 10);
-      const studentId = 6410545541;
-      console.log("Type of studentId type:", typeof studentId);
-      console.log("Student ID:", studentId);
-      if (!isNaN(studentId)) {
-        fetchInitialData(studentId);
+    if (studentId) {
+      const fetchInitialData = async (studentId: number) => {
+        try {
+          await dispatch(fetchStudentData(studentId)).unwrap();
+          await dispatch(fetchStudyPlan(studentId)).unwrap();
+          await dispatch(fetchPrerequisiteCourses(studentId)).unwrap();
+          console.log("All data fetched successfully!");
+        } catch (error) {
+          console.error("Error fetching data:", error);
+        }
+      };
+
+      const parsedStudentId = parseInt(studentId, 10);
+      if (!isNaN(parsedStudentId)) {
+        fetchInitialData(parsedStudentId);
       } else {
-        console.error("Invalid student ID:", loggedInStudentId);
+        console.error("Invalid student ID:", studentId);
       }
     }
-  }, [dispatch, loggedInStudentId]);
+  }, [dispatch, studentId]);
+
+  // TODO: Check role and select correct case
+
+  // Student case
+  // useEffect(() => {
+  //   const fetchInitialData = async (studentId: number) => {
+  //     try {
+  //       await dispatch(fetchStudentData(studentId)).unwrap();
+  //       await dispatch(fetchStudyPlan(studentId)).unwrap();
+  //       await dispatch(fetchPrerequisiteCourses(studentId)).unwrap();
+  //       console.log("All data fetched successfully!");
+  //     } catch (error) {
+  //       console.error("Error fetching data:", error);
+  //     }
+  //   };
+  //   console.log("Type of loggedInStudentId:", typeof loggedInStudentId);
+  
+  //   if (loggedInStudentId) {
+  //     // const studentId = parseInt(loggedInStudentId, 10);
+  //     const studentId = 6410545541;
+  //     console.log("Type of studentId type:", typeof studentId);
+  //     console.log("Student ID:", studentId);
+  //     if (!isNaN(studentId)) {
+  //       fetchInitialData(studentId);
+  //     } else {
+  //       console.error("Invalid student ID:", loggedInStudentId);
+  //     }
+  //   }
+  // }, [dispatch, loggedInStudentId]);
 
   const getNodePosition = (node: any) => {
     const x = node.level * nodeWidth * 2 + nodeWidth / 2;

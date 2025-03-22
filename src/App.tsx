@@ -36,10 +36,10 @@ const App: React.FC = () => {
             }
           />
           <Route
-            path="/visualization"
+            path="/visualization/:studentId"
             element={
               //<ProtectedRoute>
-                <VisualizationPage />
+              <VisualizationPage />
               //</ProtectedRoute>
             }
           />

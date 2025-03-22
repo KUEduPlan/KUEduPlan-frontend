@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Box,
   Typography,
@@ -17,104 +18,80 @@ import {
 } from "@mui/material";
 import { TableSortLabel } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-
-// Sample data for students
-const initialStudents = [
-  {
-    id: "64123456",
-    name: "John",
-    surname: "Doe",
-    department: "Computer Science",
-    year: 2,
-  },
-  {
-    id: "64123457",
-    name: "Jane",
-    surname: "Smith",
-    department: "Mathematics",
-    year: 3,
-  },
-  {
-    id: "64123458",
-    name: "Alice",
-    surname: "Johnson",
-    department: "Physics",
-    year: 1,
-  },
-  {
-    id: "64123459",
-    name: "Bob",
-    surname: "Brown",
-    department: "Computer Science",
-    year: 4,
-  },
-];
+import { fetchAdvisorData, fetchStudentList } from "../state/actions";
+import { RootState, AppDispatch } from "../state/store";
 
 const StudentListPage: React.FC = () => {
-  const [students, setStudents] = useState(initialStudents);
+  const dispatch = useDispatch<AppDispatch>();
+  const navigate = useNavigate();
+
   const [searchText, setSearchText] = useState("");
   const [sortField, setSortField] = useState<"id" | "year">("id");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  const [departmentFilter, setDepartmentFilter] = useState<string[]>([]);
   const [yearFilter, setYearFilter] = useState<string[]>([]);
 
-  const navigate = useNavigate();
+  const advisorData = useSelector(
+    (state: RootState) => state.advisor.advisorData
+  );
+  const studentList = useSelector(
+    (state: RootState) => state.advisor.studentList
+  );
 
-  // Handle search input change
+  useEffect(() => {
+    dispatch(fetchAdvisorData())
+      .unwrap()
+      .then((data: any) => {
+        if (data.length > 0) {
+          dispatch(fetchStudentList(data[0].advisor_code));
+        }
+      })
+      .catch((error: any) => {
+        console.error("Error fetching advisor data:", error);
+      });
+  }, [dispatch]);
+
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchText(event.target.value);
   };
 
-  // Handle sorting
   const handleSort = (field: "id" | "year") => {
     const isAsc = sortField === field && sortOrder === "asc";
     setSortOrder(isAsc ? "desc" : "asc");
     setSortField(field);
-
-    const sortedStudents = [...students].sort((a, b) => {
-      if (a[field] < b[field]) return isAsc ? -1 : 1;
-      if (a[field] > b[field]) return isAsc ? 1 : -1;
-      return 0;
-    });
-
-    setStudents(sortedStudents);
   };
 
-  // Handle department filter change
-  const handleDepartmentFilterChange = (event: SelectChangeEvent<string[]>) => {
-    const value = event.target.value;
-    setDepartmentFilter(typeof value === "string" ? value.split(",") : value);
-  };
-
-  // Handle year filter change
   const handleYearFilterChange = (event: SelectChangeEvent<string[]>) => {
     const value = event.target.value;
     setYearFilter(typeof value === "string" ? value.split(",") : value);
   };
 
-  // Filter and search students
-  const filteredStudents = students
-    .filter((student) => {
+  const filteredStudents = studentList
+    .filter((student: any) => {
       const matchesSearch =
         student.name.toLowerCase().includes(searchText.toLowerCase()) ||
-        student.surname.toLowerCase().includes(searchText.toLowerCase());
-      const matchesDepartment =
-        departmentFilter.length === 0 || departmentFilter.includes(student.department);
+        student.surname.toLowerCase().includes(searchText.toLowerCase()) ||
+        student.id.toLowerCase().includes(searchText.toLowerCase()); // Search by ID
       const matchesYear =
         yearFilter.length === 0 || yearFilter.includes(student.year.toString());
-      return matchesSearch && matchesDepartment && matchesYear;
+      return matchesSearch && matchesYear;
     })
-    .sort((a, b) => {
+    .sort((a: any, b: any) => {
       if (sortField === "id") {
-        return sortOrder === "asc" ? a.id.localeCompare(b.id) : b.id.localeCompare(a.id);
+        return sortOrder === "asc"
+          ? a.id.localeCompare(b.id)
+          : b.id.localeCompare(a.id);
       } else {
         return sortOrder === "asc" ? a.year - b.year : b.year - a.year;
       }
     });
 
-  // Unique departments for filter dropdown
-  const departments = Array.from(new Set(students.map((student) => student.department)));
-  const years = Array.from(new Set(students.map((student) => student.year.toString())));
+  const years = Array.from(
+    new Set(studentList.map((student: any) => student.year.toString()))
+  );
+
+  const handleStudentClick = (studentId: string) => {
+    navigate(`/visualization/${studentId}`);
+  };
 
   return (
     <Box sx={{ padding: "80px" }}>
@@ -132,29 +109,11 @@ const StudentListPage: React.FC = () => {
           gap: 2,
         }}
       >
-        {/* Department Filter */}
-        <FormControl sx={{ minWidth: 200 }}>
-          <InputLabel>Department</InputLabel>
-          <Select
-            multiple // Enable multi-select
-            value={departmentFilter}
-            onChange={handleDepartmentFilterChange}
-            label="Department"
-            renderValue={(selected) => selected.join(", ")}
-          >
-            {departments.map((dept) => (
-              <MenuItem key={dept} value={dept}>
-                {dept}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
         {/* Year Filter */}
         <FormControl sx={{ minWidth: 200 }}>
           <InputLabel>Year</InputLabel>
           <Select
-            multiple // Enable multi-select
+            multiple
             value={yearFilter}
             onChange={handleYearFilterChange}
             label="Year"
@@ -162,7 +121,7 @@ const StudentListPage: React.FC = () => {
           >
             {years.map((year) => (
               <MenuItem key={year} value={year}>
-                Year {year}
+                {year}
               </MenuItem>
             ))}
           </Select>
@@ -171,7 +130,7 @@ const StudentListPage: React.FC = () => {
         {/* Search Bar */}
         <TextField
           size="small"
-          placeholder="Search by name or surname"
+          placeholder="Search by name, surname, or ID"
           value={searchText}
           onChange={handleSearchChange}
           sx={{ flexGrow: 1, maxWidth: 400, marginLeft: "auto" }}
@@ -199,27 +158,34 @@ const StudentListPage: React.FC = () => {
                 Student Surname
               </TableCell>
               <TableCell sx={{ backgroundColor: "#f5f5f5", fontSize: "16px" }}>
-                Department
-              </TableCell>
-              <TableCell sx={{ backgroundColor: "#f5f5f5", fontSize: "16px" }}>
                 <TableSortLabel
                   active={sortField === "year"}
                   direction={sortField === "year" ? sortOrder : "asc"}
                   onClick={() => handleSort("year")}
                 >
-                  Year
+                  Registered academic year
                 </TableSortLabel>
               </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredStudents.map((student) => (
+            {filteredStudents.map((student: any) => (
               <TableRow key={student.id}>
-                <TableCell sx={{ fontSize: "16px" }}>{student.id}</TableCell>
+                <TableCell
+                  sx={{
+                    fontSize: "16px",
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                  }}
+                  onClick={() => handleStudentClick(student.id)}
+                >
+                  {student.id}
+                </TableCell>
                 <TableCell sx={{ fontSize: "16px" }}>{student.name}</TableCell>
-                <TableCell sx={{ fontSize: "16px" }}>{student.surname}</TableCell>
-                <TableCell sx={{ fontSize: "16px" }}>{student.department}</TableCell>
-                <TableCell sx={{ fontSize: "16px" }}>Year {student.year}</TableCell>
+                <TableCell sx={{ fontSize: "16px" }}>
+                  {student.surname}
+                </TableCell>
+                <TableCell sx={{ fontSize: "16px" }}>{student.year}</TableCell>
               </TableRow>
             ))}
           </TableBody>
