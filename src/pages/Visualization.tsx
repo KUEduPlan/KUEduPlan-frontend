@@ -83,7 +83,8 @@ const VisualizationPage: React.FC = () => {
     [key: string]: boolean;
   }>({});
   // const [isCourseSimulated, setIsCourseSimulated] = useState(false);
-  const loggedInStudentId = useSelector((state: any) => state.curriculum.loggedInStudentId);
+  // const loggedInStudentId = useSelector((state: any) => state.curriculum.loggedInStudentId);
+  const loggedInStudentId = 6410545541;
 
 
   const STUDENTID = loggedInStudentId
@@ -102,7 +103,8 @@ const VisualizationPage: React.FC = () => {
     console.log("Type of loggedInStudentId:", typeof loggedInStudentId);
   
     if (loggedInStudentId) {
-      const studentId = parseInt(loggedInStudentId, 10);
+      // const studentId = parseInt(loggedInStudentId, 10);
+      const studentId = 6410545541;
       console.log("Type of studentId type:", typeof studentId);
       console.log("Student ID:", studentId);
       if (!isNaN(studentId)) {
@@ -163,10 +165,6 @@ const VisualizationPage: React.FC = () => {
   
           // Calculate the level based on the year and semester
           const level = yearIndex * 2 + (adjustedSemesterIndex - 1);
-  
-          // // Special case: If subject.code is 01219499 and isSimulated is true, set level to 9
-          // const subjectLevel =
-          //   isCourseSimulated && String(subject.code) === "01219499" ? 9 : level;
   
           extractedNodes.push({
             id: subject.code,
@@ -857,6 +855,13 @@ const VisualizationPage: React.FC = () => {
         >
           Simulate
         </Button>
+        {/* <Button
+    variant="contained"
+    onClick={exportToPDF}
+    sx={{ backgroundColor: "#256E65", color: "#fff" }}
+  >
+    Export to PDF
+  </Button> */}
       </Box>
     </Box>
   );

@@ -1,6 +1,7 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_BASE_URL = 'http://localhost:8000';
 
 export const login = createAsyncThunk(
   'auth/login',
@@ -57,15 +58,6 @@ const transformStudyPlan = (studyPlan: any[]) => {
       ? course.YEAR.toString().slice(-2)
       : course.YEAR;
 
-    // HARD CODE (NEED TO DELETE AFTER FIX)
-    if (year === 68) {
-      year = 67;
-    }
-
-    if (year === 69) {
-      year = 68;
-    }
-
     // Use SEM or REGISTERSEM to determine the semester
     const semester = course.SEM || course.REGISTERSEM;
     const grade = course.GRADE === "Undefinded" ? "-" : course.GRADE;
@@ -99,13 +91,30 @@ export const fetchStudyPlan = createAsyncThunk(
   'curriculum/fetchStudyPlan',
   async (studentId: number, { rejectWithValue }) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/study_plan/${studentId}`);
-      console.log('plan response', response);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch study plan: ${response.statusText}`);
+      // const studentDataResponse = await fetch(`${API_BASE_URL}/student_data/${studentId}`);
+      const studentDataResponse = await fetch(`${API_BASE_URL}/student_data/6410545541`);
+      if (!studentDataResponse.ok) {
+        throw new Error(`Failed to fetch student data: ${studentDataResponse.statusText}`);
       }
-      const data = await response.json();
+      const studentData = await studentDataResponse.json();
+      const planId = studentData[0].PlanID;
+      console.log('student data:', studentData);
+      console.log('Plan ID:', planId);
 
+      // const studyPlanResponse = await fetch(`${API_BASE_URL}/open_plan/${studentId}`, {
+      const studyPlanResponse = await fetch(`${API_BASE_URL}/open_plan/6410545541`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ Plan_ID: planId }),
+      });
+
+      if (!studyPlanResponse.ok) {
+        throw new Error(`Failed to fetch study plan: ${studyPlanResponse.statusText}`);
+      }
+
+      const data = await studyPlanResponse.json();
       const uniqueData = data.filter((course: any, index: number, self: any[]) => {
         return index === self.findIndex((c) => c.CID === course.CID);
       });
@@ -202,6 +211,110 @@ export const submitDropFailCourses = createAsyncThunk(
       return data;
     } catch (error: any) {
       console.error("Error in submitDropFailCourses:", error);
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const fetchOpenPlanTable = createAsyncThunk(
+  'openPlan/fetchOpenPlanTable',
+  async (studentId: string, { rejectWithValue }) => {
+    try {
+      const studentDataResponse = await fetch(`${API_BASE_URL}/student_data/${studentId}`);
+      if (!studentDataResponse.ok) {
+        throw new Error(`Failed to fetch student data: ${studentDataResponse.statusText}`);
+      }
+      const studentData = await studentDataResponse.json();
+      const planId = studentData[0].PlanID;
+
+      if (!planId) {
+        throw new Error('Plan_ID not found in student data');
+      }
+
+      const openPlanResponse = await fetch(`${API_BASE_URL}/open_plan`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ Plan_ID: planId }),
+      });
+
+      if (!openPlanResponse.ok) {
+        throw new Error(`Failed to fetch open plan data: ${openPlanResponse.statusText}`);
+      }
+
+      const data = await openPlanResponse.json();
+
+      const courseMap = new Map<string, any>();
+      data.forEach((course: any) => {
+        const { CID, CNAME, GID, GNAME, ALLOWYEAR, OPENSEM } = course;
+
+        if (!courseMap.has(CID)) {
+          courseMap.set(CID, {
+            code: CID,
+            name: CNAME,
+            group: GNAME,
+            sem1: false,
+            sem2: false,
+            Plan_ID: planId,
+            CID,
+            CNAME,
+            GID,
+            GNAME,
+            ALLOWYEAR,
+          });
+        }
+
+        const courseData = courseMap.get(CID);
+        if (OPENSEM === 1) {
+          courseData.sem1 = true;
+        } else if (OPENSEM === 2) {
+          courseData.sem2 = true;
+        }
+      });
+
+      const mappedData = Array.from(courseMap.values());
+
+      return mappedData;
+    } catch (error: any) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const toggleSemester = createAsyncThunk(
+  'openPlan/toggleSemester',
+  async (
+    { row, semester, isChecked }: { row: any; semester: 'sem1' | 'sem2'; isChecked: boolean },
+    { rejectWithValue }
+  ) => {
+    try {
+      const endpoint = isChecked ? '/added_course_open_plan' : '/removed_course_open_plan';
+      const requestBody = {
+        Plan_ID: row.Plan_ID,
+        CID: row.CID,
+        CNAME: row.CNAME,
+        GID: row.GID,
+        GNAME: row.GNAME,
+        ALLOWYEAR: row.ALLOWYEAR,
+        OPENSEM: semester === 'sem1' ? 1 : 2,
+      };
+
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to toggle semester: ${response.statusText}`);
+      }
+
+      const responseData = await response.json();
+      return { row, semester, isChecked, response: responseData };
+    } catch (error: any) {
       return rejectWithValue(error.message);
     }
   }

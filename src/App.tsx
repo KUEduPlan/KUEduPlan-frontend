@@ -8,6 +8,7 @@ import LoginPage from "./pages/Login";
 import CourseDetailsPage from "./pages/CourseDetailsPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import StudentListPage from "./pages/StudentListPage";
+import OpenPlanSettingPage from "./pages/OpenPlanSettingPage";
 
 const theme = createTheme({
   typography: {
@@ -15,6 +16,7 @@ const theme = createTheme({
   },
 });
 
+// TODO: Remove protected comment
 const basename = process.env.REACT_APP_BASE_URL || "/";
 
 const App: React.FC = () => {
@@ -28,41 +30,49 @@ const App: React.FC = () => {
           <Route
             path="/"
             element={
-              <ProtectedRoute>
+              //<ProtectedRoute>
                 <VisualizationPage />
-              </ProtectedRoute>
+              //</ProtectedRoute>
             }
           />
           <Route
             path="/visualization"
             element={
-              <ProtectedRoute>
+              //<ProtectedRoute>
                 <VisualizationPage />
-              </ProtectedRoute>
+              //</ProtectedRoute>
             }
           />
           <Route
             path="/distribution"
             element={
-              <ProtectedRoute>
+              //<ProtectedRoute>
                 <DistributionPage />
-              </ProtectedRoute>
+              //</ProtectedRoute>
             }
           />
           <Route
             path="/course-details/:courseCode"
             element={
-              <ProtectedRoute>
+              //<ProtectedRoute>
                 <CourseDetailsPage />
-              </ProtectedRoute>
+              //</ProtectedRoute>
             }
           />
           <Route
             path="/student-list"
             element={
-              <ProtectedRoute>
+              //<ProtectedRoute>
                 <StudentListPage />
-              </ProtectedRoute>
+              //</ProtectedRoute>
+            }
+          />
+          <Route
+            path="/openplan-setting"
+            element={
+              //<ProtectedRoute>
+                <OpenPlanSettingPage />
+              //</ProtectedRoute>
             }
           />
         </Routes>

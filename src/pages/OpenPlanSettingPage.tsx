@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -8,87 +8,90 @@ import {
   FormControl,
   InputLabel,
   SelectChangeEvent,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import OpenPlanTable from '../components/OpenPlanTable';
-
-// Sample data for courses
-const initialCourses = [
-  {
-    code: '01219114-60',
-    name: 'Computer Programming I',
-    faculty: 'Software and Knowledge Engineering',
-    sem1: true,
-    sem2: false,
-  },
-  {
-    code: '01219115-65',
-    name: 'Computer Programming II',
-    faculty: 'Software and Knowledge Engineering',
-    sem1: true,
-    sem2: false,
-  },
-  {
-    code: '01214113-60',
-    name: 'Computer Programming',
-    faculty: 'Computer Engineering',
-    sem1: true,
-    sem2: true,
-  },
-];
+import { useAppDispatch, useAppSelector } from '../state/store';
+import { fetchOpenPlanTable, toggleSemester } from '../state/actions';
 
 const OpenPlanSettingPage: React.FC = () => {
-  const [courses, setCourses] = useState(initialCourses);
   const [searchText, setSearchText] = useState('');
-  const [departmentFilter, setDepartmentFilter] = useState<string[]>([]);
-  const [sortField, setSortField] = useState<'code' | 'name'>('code');
+  const [groupFilter, setGroupFilter] = useState<string[]>([]);
+  const [sortField, setSortField] = useState<'code' | 'name' | 'group'>('code');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
-  // Handle search input change
+  const { data: courses, loading, error } = useAppSelector((state) => state.openPlan);
+  const dispatch = useAppDispatch();
+
+  // TODO: Delete hardcode logic
+  useEffect(() => {
+    dispatch(fetchOpenPlanTable('6410545541'));
+  }, [dispatch]);
+
+  const uniqueGroups = Array.from(new Set(courses.map((course) => course.group)));
+
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchText(event.target.value);
   };
 
-  // Handle department filter change
-  const handleDepartmentFilterChange = (event: SelectChangeEvent<string[]>) => {
+  const handleGroupFilterChange = (event: SelectChangeEvent<string[]>) => {
     const value = event.target.value;
-    setDepartmentFilter(typeof value === 'string' ? value.split(',') : value);
+    setGroupFilter(typeof value === 'string' ? value.split(',') : value);
   };
 
-  // Handle sorting
-  const handleSort = (field: 'code' | 'name') => {
+  const handleSort = (field: 'code' | 'name' | 'group') => {
     const isAsc = sortField === field && sortOrder === 'asc';
     setSortOrder(isAsc ? 'desc' : 'asc');
     setSortField(field);
-
-    const sortedCourses = [...courses].sort((a, b) => {
-      if (a[field] < b[field]) return isAsc ? -1 : 1;
-      if (a[field] > b[field]) return isAsc ? 1 : -1;
-      return 0;
-    });
-
-    setCourses(sortedCourses);
   };
 
-  // Filter and search courses
+  const handleToggleSemester = (row: any, semester: 'sem1' | 'sem2', isChecked: boolean) => {
+    dispatch(toggleSemester({ row, semester, isChecked }));
+  };
+
   const filteredCourses = courses
     .filter((course) => {
       const matchesSearch =
         course.name.toLowerCase().includes(searchText.toLowerCase()) ||
         course.code.toLowerCase().includes(searchText.toLowerCase());
-      const matchesDepartment =
-        departmentFilter.length === 0 || departmentFilter.includes(course.faculty);
-      return matchesSearch && matchesDepartment;
+      const matchesGroup =
+        groupFilter.length === 0 || groupFilter.includes(course.group);
+      return matchesSearch && matchesGroup;
     })
     .sort((a, b) => {
       if (sortField === 'code') {
-        return sortOrder === 'asc' ? a.code.localeCompare(b.code) : b.code.localeCompare(a.code);
-      } else {
-        return sortOrder === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+        return sortOrder === 'asc'
+          ? a.code.localeCompare(b.code)
+          : b.code.localeCompare(a.code);
+      } else if (sortField === 'name') {
+        return sortOrder === 'asc'
+          ? a.name.localeCompare(b.name)
+          : b.name.localeCompare(a.name);
+      } else if (sortField === 'group') {
+        return sortOrder === 'asc'
+          ? a.group.localeCompare(b.group)
+          : b.group.localeCompare(a.group);
       }
+      return 0;
     });
 
-  // Unique faculties for filter dropdown
-  const faculties = Array.from(new Set(courses.map((course) => course.faculty)));
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <Alert severity="error" sx={{ margin: '20px' }}>
+        Error: {error}
+      </Alert>
+    );
+  }
 
   return (
     <Box sx={{ padding: '80px' }}>
@@ -106,19 +109,19 @@ const OpenPlanSettingPage: React.FC = () => {
           gap: 2,
         }}
       >
-        {/* Department Filter */}
+        {/* Group Filter */}
         <FormControl sx={{ minWidth: 200 }}>
-          <InputLabel>Faculty</InputLabel>
+          <InputLabel>Group</InputLabel>
           <Select
             multiple
-            value={departmentFilter}
-            onChange={handleDepartmentFilterChange}
-            label="Faculty"
+            value={groupFilter}
+            onChange={handleGroupFilterChange}
+            label="Group"
             renderValue={(selected) => selected.join(', ')}
           >
-            {faculties.map((faculty) => (
-              <MenuItem key={faculty} value={faculty}>
-                {faculty}
+            {uniqueGroups.map((group) => (
+              <MenuItem key={group} value={group}>
+                {group}
               </MenuItem>
             ))}
           </Select>
@@ -135,7 +138,13 @@ const OpenPlanSettingPage: React.FC = () => {
       </Box>
 
       {/* OpenPlanTable */}
-      <OpenPlanTable rows={filteredCourses} />
+      <OpenPlanTable
+        rows={filteredCourses}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={handleSort}
+        onToggleSemester={handleToggleSemester}
+      />
     </Box>
   );
 };
