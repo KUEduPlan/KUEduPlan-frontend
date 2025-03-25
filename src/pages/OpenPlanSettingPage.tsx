@@ -34,10 +34,10 @@ const OpenPlanSettingPage: React.FC = () => {
   } = useAppSelector((state) => state.openPlan);
   const dispatch = useAppDispatch();
   const { planId } = useAppSelector((state) => state.curriculum);
+  const role = useAppSelector((state) => state.curriculum.role);
 
-  // TODO: Delete hardcode logic
   useEffect(() => {
-    dispatch(fetchOpenPlanTable("6410545541"));
+    dispatch(fetchOpenPlanTable());
   }, [dispatch]);
 
   const handleResetPlan = async () => {
@@ -76,7 +76,7 @@ const OpenPlanSettingPage: React.FC = () => {
       });
 
       // Refresh data
-      dispatch(fetchOpenPlanTable("6410545541"));
+      dispatch(fetchOpenPlanTable());
     } catch (error: any) {
       Swal.fire({
         icon: "error",
@@ -169,9 +169,16 @@ const OpenPlanSettingPage: React.FC = () => {
           justifyContent: "space-between",
           alignItems: "center",
           marginBottom: "20px",
+          gap: 2,
         }}
       >
-        <Typography variant="h5">Open Plan Settings</Typography>
+  
+        {/* Center - Title */}
+        <Typography variant="h5" sx={{ flexGrow: 1 }}>
+          Open Plan Settings
+        </Typography>
+  
+        {/* Right side - Reset Plan button */}
         <Button
           variant="contained"
           color="error"
@@ -181,7 +188,7 @@ const OpenPlanSettingPage: React.FC = () => {
           Reset Plan
         </Button>
       </Box>
-
+  
       {/* Filters and Search Bar */}
       <Box
         sx={{
@@ -228,6 +235,22 @@ const OpenPlanSettingPage: React.FC = () => {
         onSort={handleSort}
         onToggleSemester={handleToggleSemester}
       />
+
+      <Box>
+          {role === "curriculum_admin" && (
+            <Button
+              variant="contained"
+              onClick={() => window.history.back()}
+              sx={{ 
+                backgroundColor: "#256E65", 
+                color: "#fff",
+                marginTop: 4
+              }}
+            >
+              Back
+            </Button>
+          )}
+        </Box>
     </Box>
   );
 };

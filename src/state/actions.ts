@@ -335,26 +335,10 @@ export const submitDropFailCourses = createAsyncThunk(
 
 export const fetchOpenPlanTable = createAsyncThunk(
   "openPlan/fetchOpenPlanTable",
-  async (studentId: string, { rejectWithValue, getState }) => {
+  async (_, { rejectWithValue, getState }) => {
     try {
       const { curriculum } = getState() as { curriculum: CurriculumState };
-
-      const studentDataResponse = await fetch(
-        `${API_BASE_URL}/student_data/${studentId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${curriculum.accessToken}`,
-          },
-        }
-      );
-      if (!studentDataResponse.ok) {
-        throw new Error(
-          `Failed to fetch student data: ${studentDataResponse.statusText}`
-        );
-      }
-      const studentData = await studentDataResponse.json();
-      const planId = studentData[0].PlanID;
-
+      const planId = curriculum.planId
       if (!planId) {
         throw new Error("Plan_ID not found in student data");
       }
