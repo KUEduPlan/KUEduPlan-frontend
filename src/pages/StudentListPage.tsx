@@ -22,7 +22,14 @@ import { fetchAdvisorData, fetchStudentList } from "../state/actions";
 import { RootState, AppDispatch } from "../state/store";
 
 const StudentListPage: React.FC = () => {
+  console.log("StudentListPage rendered");
   const dispatch = useDispatch<AppDispatch>();
+  const advisorData = useSelector(
+    (state: RootState) => state.advisor.advisorData
+  );
+  const studentList = useSelector(
+    (state: RootState) => state.advisor.studentList
+  );
   const navigate = useNavigate();
 
   const [searchText, setSearchText] = useState("");
@@ -30,20 +37,14 @@ const StudentListPage: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [yearFilter, setYearFilter] = useState<string[]>([]);
 
-  const advisorData = useSelector(
-    (state: RootState) => state.advisor.advisorData
-  );
-  const studentList = useSelector(
-    (state: RootState) => state.advisor.studentList
-  );
-
   useEffect(() => {
+    console.log("useEffect in StudentListPage triggered"); // Add this line
+    console.log("Fetching advisor data...");
     dispatch(fetchAdvisorData())
       .unwrap()
-      .then((data: any) => {
-        if (data.length > 0) {
-          dispatch(fetchStudentList(data[0].advisor_code));
-        }
+      .then(() => {
+        console.log("Advisor data fetched. Fetching student list...");
+        dispatch(fetchStudentList());
       })
       .catch((error: any) => {
         console.error("Error fetching advisor data:", error);
@@ -51,6 +52,7 @@ const StudentListPage: React.FC = () => {
   }, [dispatch]);
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("Search text:", event.target.value);
     setSearchText(event.target.value);
   };
 

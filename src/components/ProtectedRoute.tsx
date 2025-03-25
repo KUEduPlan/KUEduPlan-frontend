@@ -1,17 +1,25 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
-import { useSelector } from "react-redux";
 
 interface ProtectedRouteProps {
+  loggedIn: boolean;
+  role: string | null;
+  allowedRoles: string[];
   children: React.ReactNode;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const loggedInStudentId = useSelector((state: any) => state.curriculum.loggedInStudentId);
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+  loggedIn,
+  role,
+  allowedRoles,
+  children,
+}) => {
+  if (!loggedIn) {
+    return <Navigate to="/login" />;
+  }
 
-  if (!loggedInStudentId) {
-    // Redirect to login page if not logged in
-    return <Navigate to="/login" replace />;
+  if (!allowedRoles.includes(role!)) {
+    return <Navigate to="/" />;
   }
 
   return <>{children}</>;

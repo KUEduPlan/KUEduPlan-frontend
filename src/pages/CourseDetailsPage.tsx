@@ -1,48 +1,163 @@
-import React, { useState } from 'react';
-import { Box, Typography, Checkbox, Button } from '@mui/material';
-import { Bar } from 'react-chartjs-2';
-import DistributionChart from '../components/DistributionChart';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { Box, Typography, Checkbox, Button } from "@mui/material";
+import { Bar } from "react-chartjs-2";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import { fetchCourseDetail } from "../state/actions";
+import { useDispatch, useSelector } from "react-redux";
+import { AppDispatch, RootState } from "../state/store";
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
+
+interface CourseDetail {
+  CID: string;
+  Ineligible: number;
+  Eligible: number;
+}
+
+type CourseDetailsResponse = {
+  [year: string]: CourseDetail;
+};
 
 const CourseDetailsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [eligibleData, setEligibleData] = useState({
-    year2: 3,
-    year3: 4,
-    year4: 2,
-  });
+  const dispatch: AppDispatch = useDispatch();
+  const { courseCode } = useParams<{ courseCode: string }>();
+  // const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+  const API_BASE_URL = "http://localhost:8000";
+  const userInfo = useSelector((state: RootState) => state.curriculum);
 
-  const handleCheckboxChange = (year: string) => {
-    setEligibleData((prev) => ({ ...prev, [year]: 0 }));
+  const originalCourseDetails = useSelector(
+    (state: RootState) => state.courseDetail.data
+  ) as CourseDetailsResponse | null;
+  const [displayCourseDetails, setDisplayCourseDetails] =
+    useState<CourseDetailsResponse | null>(null);
+  const [eligibleData, setEligibleData] = useState<{ [key: string]: boolean }>(
+    {}
+  );
+
+  useEffect(() => {
+    if (courseCode) {
+      dispatch(fetchCourseDetail(courseCode));
+    }
+  }, [courseCode, dispatch]);
+
+  // Initialize states when originalCourseDetails changes
+  useEffect(() => {
+    if (originalCourseDetails) {
+      const initialData: { [key: string]: boolean } = {};
+      Object.keys(originalCourseDetails).forEach((year) => {
+        initialData[year] = false;
+      });
+      setEligibleData(initialData);
+      setDisplayCourseDetails(originalCourseDetails);
+    }
+  }, [originalCourseDetails]);
+
+  // Handle checkbox changes
+  const handleCheckboxChange = async (year: string) => {
+    const newCheckedState = !eligibleData[year];
+    setEligibleData((prev) => ({ ...prev, [year]: newCheckedState }));
+
+    if (courseCode && userInfo.planId) {
+      try {
+        if (newCheckedState) {
+          // Toggled ON - fetch updated data for this specific year
+          const response = await fetch(
+            `${API_BASE_URL}/allow_sub_dis_cid/${courseCode}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${userInfo.accessToken}`,
+              },
+              body: JSON.stringify({ Plan_ID: userInfo.planId }),
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(`Request failed with status ${response.status}`);
+          }
+
+          const contentType = response.headers.get("content-type");
+          if (!contentType || !contentType.includes("application/json")) {
+            throw new Error("Expected JSON response");
+          }
+
+          const updatedDetails = await response.json();
+
+          // Update only the specific year's data in the display
+          setDisplayCourseDetails((prev) => ({
+            ...prev,
+            [year]: updatedDetails[year],
+          }));
+        } else {
+          // Toggled OFF - revert this year's data to original
+          setDisplayCourseDetails((prev) => {
+            if (!prev || !originalCourseDetails) return prev;
+            return {
+              ...prev,
+              [year]: originalCourseDetails[year] || prev[year],
+            };
+          });
+        }
+      } catch (error) {
+        console.error("Error updating course eligibility:", error);
+        // Revert checkbox state on error
+        setEligibleData((prev) => ({ ...prev, [year]: !newCheckedState }));
+      }
+    }
   };
 
-  const data1 = {
-    labels: ['65 (Year 2)', '64 (Year 3)', '63 (Year 4)', '>63 (Year >4)'],
+  // Prepare chart data
+  const chartData = {
+    labels: Object.keys(displayCourseDetails || {}).map(
+      (year) => `${year} (Year ${parseInt(year) % 100})`
+    ),
     datasets: [
       {
-        label: 'Eligible to enroll',
-        data: [eligibleData.year2, eligibleData.year3, eligibleData.year4, 1],
-        backgroundColor: '#256E65',
+        label: "Eligible to enroll",
+        data: Object.values(displayCourseDetails || {}).map(
+          (detail) => detail.Eligible
+        ),
+        backgroundColor: "#256E65",
       },
       {
-        label: 'Ineligible to enroll',
-        data: [6, 5, 4, 3],
-        backgroundColor: '#A9A9A9',
+        label: "Ineligible to enroll",
+        data: Object.values(displayCourseDetails || {}).map(
+          (detail) => detail.Ineligible
+        ),
+        backgroundColor: "#A9A9A9",
       },
     ],
   };
 
-  const options1 = {
-    indexAxis: 'y' as const,
+  const chartOptions = {
+    indexAxis: "y" as const,
     responsive: true,
     maintainAspectRatio: true,
     plugins: {
       legend: {
         display: true,
-        position: 'bottom' as const,
+        position: "bottom" as const,
         labels: {
           font: {
-            family: 'Prompt, Arial, sans-serif',
+            family: "Prompt, Arial, sans-serif",
             size: 14,
           },
         },
@@ -53,15 +168,15 @@ const CourseDetailsPage: React.FC = () => {
         stacked: true,
         title: {
           display: true,
-          text: 'Number of Students',
+          text: "Number of Students",
           font: {
-            family: 'Prompt, Arial, sans-serif',
+            family: "Prompt, Arial, sans-serif",
             size: 14,
           },
         },
         ticks: {
           font: {
-            family: 'Prompt, Arial, sans-serif',
+            family: "Prompt, Arial, sans-serif",
             size: 12,
           },
         },
@@ -70,15 +185,15 @@ const CourseDetailsPage: React.FC = () => {
         stacked: true,
         title: {
           display: true,
-          text: 'Student Academic Year',
+          text: "Student Academic Year",
           font: {
-            family: 'Prompt, Arial, sans-serif',
+            family: "Prompt, Arial, sans-serif",
             size: 14,
           },
         },
         ticks: {
           font: {
-            family: 'Prompt, Arial, sans-serif',
+            family: "Prompt, Arial, sans-serif",
             size: 12,
           },
         },
@@ -87,73 +202,60 @@ const CourseDetailsPage: React.FC = () => {
   };
 
   return (
-    <Box sx={{ padding: '80px' }}>
-      <Typography variant="h5" sx={{ marginBottom: '20px', textAlign: 'left' }}>
+    <Box sx={{ padding: "80px" }}>
+      <Typography variant="h5" sx={{ marginBottom: "20px", textAlign: "left" }}>
         Distribution
       </Typography>
-      <Typography variant="h6" sx={{ marginBottom: '20px', textAlign: 'left' }}>
-        01219114 - Computer Programming I
+      <Typography variant="h6" sx={{ marginBottom: "20px", textAlign: "left" }}>
+        {courseCode} -{" "}
+        {displayCourseDetails
+          ? Object.values(displayCourseDetails)[0].CID
+          : "Loading..."}
       </Typography>
       <Box
         sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          marginBottom: '20px',
-          gap: '10px',
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          marginBottom: "20px",
+          gap: "10px",
         }}
       >
-        <Box sx={{ flex: 2, height: '700px' }}>
-          <Bar data={data1} options={options1} />
+        <Box sx={{ flex: 2, height: "700px" }}>
+          <Bar data={chartData} options={chartOptions} />
         </Box>
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <Typography variant="body1" sx={{ marginBottom: '10px' }}>
+        <Box
+          sx={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+          }}
+        >
+          <Typography variant="body1" sx={{ marginBottom: "10px" }}>
             Assume this course is available next semester without conflicts for:
           </Typography>
-          <Box>
-            <Checkbox
-              checked={eligibleData.year2 === 0}
-              onChange={() => handleCheckboxChange('year2')}
-            />
-            <Typography variant="body2" display="inline">
-              Year 2
-            </Typography>
-          </Box>
-          <Box>
-            <Checkbox
-              checked={eligibleData.year3 === 0}
-              onChange={() => handleCheckboxChange('year3')}
-            />
-            <Typography variant="body2" display="inline">
-              Year 3
-            </Typography>
-          </Box>
-          <Box>
-            <Checkbox
-              checked={eligibleData.year4 === 0}
-              onChange={() => handleCheckboxChange('year4')}
-            />
-            <Typography variant="body2" display="inline">
-              Year 4
-            </Typography>
-          </Box>
-        </Box>
-      </Box>
-      <Box sx={{ marginTop: '40px', display: 'flex', justifyContent: 'center' }}>
-        <Box sx={{ width: '70%', height: '700px' }}>
-          <Typography variant="h6" sx={{ marginBottom: '20px', textAlign: 'center' }}>
-            Number of student vs. Number of years required to graduate
-          </Typography>
-          <DistributionChart />
+          {displayCourseDetails &&
+            Object.keys(displayCourseDetails).map((year) => (
+              <Box key={year}>
+                <Checkbox
+                  checked={eligibleData[year] || false}
+                  onChange={() => handleCheckboxChange(year)}
+                />
+                <Typography variant="body2" display="inline">
+                  Year {parseInt(year) % 100}
+                </Typography>
+              </Box>
+            ))}
         </Box>
       </Box>
       <Button
         variant="contained"
         style={{
-          backgroundColor: '#256E65',
+          backgroundColor: "#256E65",
         }}
-        sx={{ marginTop: '20px' }}
-        onClick={() => navigate('/distribution')}
+        sx={{ marginTop: "20px" }}
+        onClick={() => navigate("/distribution")}
       >
         Back
       </Button>

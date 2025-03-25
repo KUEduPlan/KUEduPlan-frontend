@@ -5,11 +5,15 @@ import {
   fetchPrerequisiteCourses,
   submitDropFailCourses,
   login,
+  logout,
 } from "./actions";
 
 interface Subject {
   fail: boolean;
   withdraw: boolean;
+  code: string;
+  name: string;
+  grade: string;
 }
 
 interface Semester {
@@ -18,27 +22,46 @@ interface Semester {
 }
 
 interface Year {
+  year: string;
   semesters: Semester[];
 }
 
-interface CurriculumState {
+export interface CurriculumState {
+  // Curriculum-related fields
   studentInfo: Record<string, any>;
   years: Year[];
   prerequisites: any[];
   loading: boolean;
   error: string | null;
   isSimulated: boolean;
+
+  // Auth-related fields
+  loggedIn: boolean;
+  username: string | null;
+  accessToken: string | null;
+  tokenType: string | null;
+  role: string | null;
+  planId: number | null;
   loggedInStudentId: string | null;
 }
 
-export const initialState: CurriculumState = {
+const initialState: CurriculumState = {
+  // Curriculum-related fields
   studentInfo: {},
   years: [],
   prerequisites: [],
   loading: false,
   error: null,
   isSimulated: false,
-  loggedInStudentId: null, // Default to null
+
+  // Auth-related fields
+  loggedIn: false,
+  username: null,
+  accessToken: null,
+  tokenType: null,
+  role: null,
+  planId: null,
+  loggedInStudentId: null,
 };
 
 const transformResponseToYears = (courses: any[]) => {
@@ -47,7 +70,8 @@ const transformResponseToYears = (courses: any[]) => {
   courses.forEach((course) => {
     const year = course.YEAR.toString();
     const semester = course.SEM || course.REGISTERSEM;
-    const grade = course.GRADE === "Undefinded" ? "-" : course.GRADE;
+    const grade = course.GRADE === "Undefined" ? "-" : course.GRADE;
+    console.log("Grade", grade);
 
     if (!groupedData[year]) {
       groupedData[year] = {};
@@ -61,13 +85,15 @@ const transformResponseToYears = (courses: any[]) => {
       code: course.CID,
       name: course.CNAME,
       grade: grade,
+      fail: false,
+      withdraw: false,
     });
   });
 
   return Object.keys(groupedData).map((year) => ({
     year,
     semesters: Object.keys(groupedData[year]).map((semester) => ({
-      semester,
+      semester: parseInt(semester),
       subjects: groupedData[year][semester],
       dropped: false,
     })),
@@ -104,13 +130,35 @@ const curriculumSlice = createSlice({
       })
       .addCase(login.fulfilled, (state, action) => {
         state.loading = false;
-        state.loggedInStudentId = action.payload; // Store the student ID
-        console.log("Student ID stored in Redux:", action.payload); // Debugging
+        state.loggedIn = true;
+        state.username = action.payload.username;
+        state.accessToken = action.payload.accessToken;
+        state.tokenType = action.payload.tokenType;
+        state.role = action.payload.role;
+        state.planId = action.payload.planId;
+        state.loggedInStudentId = action.payload.username.replace("b", "");
+        console.log("Login successful. Stored data:", action.payload);
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
+        state.loggedIn = false;
+      })
+      .addCase(logout.fulfilled, (state) => {
+        state.loggedIn = false;
+        state.username = null;
+        state.accessToken = null;
+        state.tokenType = null;
+        state.role = null;
+        state.planId = null;
+        state.loggedInStudentId = null;
+        console.log("Logout successful.");
+      })
+      .addCase(logout.rejected, (state, action) => {
+        state.error = action.payload as string;
+        console.error("Logout failed:", action.payload);
       });
+
     builder
       .addCase(fetchStudentData.pending, (state) => {
         state.loading = true;
@@ -124,11 +172,12 @@ const curriculumSlice = createSlice({
         state.loading = false;
         state.error = action.payload as string;
       });
-    builder.addCase(fetchStudyPlan.pending, (state) => {
-      state.loading = true;
-      state.error = null;
-    });
+
     builder
+      .addCase(fetchStudyPlan.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
       .addCase(fetchStudyPlan.fulfilled, (state, action) => {
         state.loading = false;
         state.years = action.payload.map((year: any) => ({
@@ -144,6 +193,7 @@ const curriculumSlice = createSlice({
         state.loading = false;
         state.error = action.payload as string;
       });
+
     builder
       .addCase(fetchPrerequisiteCourses.pending, (state) => {
         state.loading = true;
@@ -157,11 +207,12 @@ const curriculumSlice = createSlice({
         state.loading = false;
         state.error = action.payload as string;
       });
-    builder.addCase(submitDropFailCourses.pending, (state) => {
-      state.loading = true;
-      state.error = null;
-    });
+
     builder
+      .addCase(submitDropFailCourses.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
       .addCase(submitDropFailCourses.fulfilled, (state, action) => {
         console.log("Submit Drop/Fail Courses Response:", action.payload);
         state.loading = false;
@@ -173,7 +224,7 @@ const curriculumSlice = createSlice({
           state.error = "Unexpected response format from the server.";
         }
 
-        state.isSimulated = true; // Set to true after simulation
+        state.isSimulated = true;
       })
       .addCase(submitDropFailCourses.rejected, (state, action) => {
         state.loading = false;

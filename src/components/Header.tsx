@@ -1,26 +1,59 @@
 import React from "react";
-import { AppBar, Toolbar, Typography, Box, Button } from "@mui/material";
+import { AppBar, Toolbar, Typography, Box } from "@mui/material";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
-import { RootState } from "../state/store";
-// import { logout } from "../state/actions"; // Add a logout action
+import { AppDispatch, RootState } from "../state/store";
+import { logout } from "../state/actions";
+import Swal from "sweetalert2";
 
 const Header: React.FC = () => {
-  const studentInfo = useSelector(
-    (state: RootState) => state.curriculum.studentInfo
-  );
-  const student = studentInfo?.[0];
+  const userInfo = useSelector((state: RootState) => state.curriculum);
   const loggedInStudentId = useSelector(
-    (state: any) => state.curriculum.loggedInStudentId
+    (state: RootState) => state.curriculum.loggedInStudentId
   );
+  const role = useSelector((state: RootState) => state.curriculum.role);
   const navigate = useNavigate();
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
 
-  const handleLogout = () => {
-    // Clear the logged-in state
-    // dispatch(logout());
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      const result = await Swal.fire({
+        title: "Are you sure?",
+        text: "You will be logged out of the system.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#256E65",
+        cancelButtonColor: "#d33",
+        confirmButtonText: "Yes, logout!",
+        cancelButtonText: "Cancel",
+      });
+
+      if (result.isConfirmed) {
+        await dispatch(logout()).unwrap();
+        Swal.fire({
+          title: "Logged out!",
+          text: "You have been successfully logged out.",
+          icon: "success",
+          confirmButtonColor: "#256E65",
+        }).then(() => {
+          navigate("/login");
+        });
+      }
+    } catch (error: any) {
+      console.error(
+        "Logout failed:",
+        error.message || "An unknown error occurred"
+      );
+      Swal.fire({
+        title: "Error!",
+        text: error.message || "Logout failed. Please try again.",
+        icon: "error",
+        confirmButtonColor: "#256E65",
+      });
+    }
   };
+
+  console.log("Logged in student ID:", loggedInStudentId);
 
   return (
     <AppBar position="static" sx={{ backgroundColor: "#256E65" }}>
@@ -31,47 +64,61 @@ const Header: React.FC = () => {
         <Box sx={{ display: "flex", gap: "20px" }}>
           {loggedInStudentId ? (
             <>
+              {/* Show "Distribution" only for curriculum_admin */}
+              {role === "curriculum_admin" && (
+                <Typography
+                  component={Link}
+                  to="/distribution"
+                  sx={{ color: "white", textDecoration: "none" }}
+                >
+                  Distribution
+                </Typography>
+              )}
+
+              {/* Show "Student List" for curriculum_admin */}
+              {role === "curriculum_admin" && (
+                <Typography
+                  component={Link}
+                  to="/openplan-setting"
+                  sx={{ color: "white", textDecoration: "none" }}
+                >
+                  Plan Setting
+                </Typography>
+              )}
+
+              {/* Show "Student List" for advisor */}
+              {role === "advisor" && (
+                <Typography
+                  component={Link}
+                  to="/student-list"
+                  sx={{ color: "white", textDecoration: "none" }}
+                >
+                  Student List
+                </Typography>
+              )}
+
+              {/* Show "Logout" for all roles */}
               <Typography
-                component={Link}
-                to="/"
-                sx={{ color: "white", textDecoration: "none" }}
-              >
-                Plan
-              </Typography>
-              <Typography
-                component={Link}
-                to="/distribution"
-                sx={{ color: "white", textDecoration: "none" }}
-              >
-                Distribution
-              </Typography>
-              <Typography
-                component={Link}
-                to="/student-list"
-                sx={{ color: "white", textDecoration: "none" }}
-              >
-                Student List
-              </Typography>
-              {/* <Typography
-                component={Link}
-                to="/course-details"
-                sx={{ color: "white", textDecoration: "none" }}
-              >
-                Course Details
-              </Typography> */}
-              {/* <Button
                 onClick={handleLogout}
-                sx={{ color: "white", textTransform: "none" }}
+                sx={{
+                  color: "white",
+                  textTransform: "none",
+                  cursor: "pointer",
+                  "&:hover": {
+                    textDecoration: "underline",
+                  },
+                }}
               >
                 Logout
-              </Button> */}
-              <Typography sx={{ color: "white" }}>
-                {loggedInStudentId} {student?.StdFirstName}{" "}
-                {student?.StdLastName}
               </Typography>
+              <Typography sx={{ color: "white" }}>
+                {userInfo.username}
+              </Typography>
+              {/* TODO: Display logged-in user info */}
             </>
           ) : (
             <>
+              {/* Show "Login" if not logged in */}
               <Typography
                 component={Link}
                 to="/login"

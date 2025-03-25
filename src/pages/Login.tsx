@@ -8,11 +8,12 @@ import {
   InputAdornment,
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { login } from "../state/actions";
 import logo from "../pics/logo.png";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
+import { RootState } from "../state/store";
 
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState("");
@@ -22,12 +23,16 @@ const LoginPage: React.FC = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
+  const role = useSelector((state: RootState) => state.curriculum.role);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     try {
-      await (dispatch as any)(login({ username, password })).unwrap();
+      const result = await (dispatch as any)(
+        login({ username, password })
+      ).unwrap();
 
       // Show success modal
       Swal.fire({
@@ -36,7 +41,19 @@ const LoginPage: React.FC = () => {
         icon: "success",
         confirmButtonText: "OK",
       }).then(() => {
-        navigate("/visualization");
+        const role = result.role;
+        console.log("Role:", role);
+
+        if (role === "student") {
+          console.log("Redirecting to /");
+          navigate("/");
+        } else if (role === "advisor") {
+          navigate("/student-list");
+        } else if (role === "curriculum_admin") {
+          navigate("/distribution");
+        } else {
+          navigate("/");
+        }
       });
     } catch (err: any) {
       console.error("Login error:", err);
