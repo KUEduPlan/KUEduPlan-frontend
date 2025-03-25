@@ -92,6 +92,7 @@ const VisualizationPage: React.FC = () => {
   const [semesterDropStatus, setSemesterDropStatus] = useState<{
     [key: string]: boolean;
   }>({});
+  const [isSimulationMode, setIsSimulationMode] = useState(false);
 
   const STUDENTID = loggedInStudentId;
 
@@ -249,6 +250,7 @@ const VisualizationPage: React.FC = () => {
       setFocusNode(null);
       setDropFailCourses([]);
       setIsAnyCheckboxSelected(false);
+      setIsSimulationMode(false);
 
       // Fetch the original study plan
       await dispatch(fetchStudyPlan(STUDENTID)).unwrap();
@@ -380,6 +382,7 @@ const VisualizationPage: React.FC = () => {
   const handleSimulate = async () => {
     try {
       console.log("Starting simulation...");
+      setIsSimulationMode(true);
 
       const formattedCourses = dropFailCourses.map((course) => {
         const courseNode = nodes?.find(
@@ -418,6 +421,7 @@ const VisualizationPage: React.FC = () => {
       });
     } catch (error) {
       console.error("Failed to submit drop/fail courses:", error);
+      setIsSimulationMode(false);
 
       // Show error modal
       Swal.fire({
@@ -504,60 +508,62 @@ const VisualizationPage: React.FC = () => {
         .attr("text-anchor", "end")
         .text(() => (node.grade ? node.grade : ""));
 
-      // Add F and W/N checkboxes
-      const checkboxGroup = nodeGroup
-        .append("foreignObject")
-        .attr("x", 10)
-        .attr("y", nodeHeight + 5)
-        .attr("width", nodeWidth - 20)
-        .attr("height", 30)
-        .append("xhtml:div")
-        .style("display", () => (node.grade === "-" ? "flex" : "none"))
-        .style("justify-content", "space-between");
+      if (node.grade === "-" && !isSimulationMode) {
+        // Add F and W/N checkboxes
+        const checkboxGroup = nodeGroup
+          .append("foreignObject")
+          .attr("x", 10)
+          .attr("y", nodeHeight + 5)
+          .attr("width", nodeWidth - 20)
+          .attr("height", 30)
+          .append("xhtml:div")
+          .style("display", () => (node.grade === "-" ? "flex" : "none"))
+          .style("justify-content", "space-between");
 
-      // Add F checkbox
-      checkboxGroup
-        .append("label")
-        .style("display", "flex")
-        .style("align-items", "center")
-        .html(() => {
-          const isFailed = dropFailCourses.some(
-            (course) =>
-              course.CID === node.originalId && course.Type === "Failed"
-          );
-          return `
+        // Add F checkbox
+        checkboxGroup
+          .append("label")
+          .style("display", "flex")
+          .style("align-items", "center")
+          .html(() => {
+            const isFailed = dropFailCourses.some(
+              (course) =>
+                course.CID === node.originalId && course.Type === "Failed"
+            );
+            return `
           <input type="checkbox" ${isFailed ? "checked" : ""} />
           F
         `;
-        })
-        .on("click", (event: any) => {
-          event.stopPropagation();
-        })
-        .on("change", () => {
-          handleCourseToggle(node.id, "Failed");
-        });
+          })
+          .on("click", (event: any) => {
+            event.stopPropagation();
+          })
+          .on("change", () => {
+            handleCourseToggle(node.id, "Failed");
+          });
 
-      // Add W/N checkbox
-      checkboxGroup
-        .append("label")
-        .style("display", "flex")
-        .style("align-items", "center")
-        .html(() => {
-          const isDropped = dropFailCourses.some(
-            (course) =>
-              course.CID === node.originalId && course.Type === "Dropped"
-          );
-          return `
+        // Add W/N checkbox
+        checkboxGroup
+          .append("label")
+          .style("display", "flex")
+          .style("align-items", "center")
+          .html(() => {
+            const isDropped = dropFailCourses.some(
+              (course) =>
+                course.CID === node.originalId && course.Type === "Dropped"
+            );
+            return `
           <input type="checkbox" ${isDropped ? "checked" : ""} />
           W/N
         `;
-        })
-        .on("click", (event: any) => {
-          event.stopPropagation();
-        })
-        .on("change", () => {
-          handleCourseToggle(node.id, "Dropped");
-        });
+          })
+          .on("click", (event: any) => {
+            event.stopPropagation();
+          })
+          .on("change", () => {
+            handleCourseToggle(node.id, "Dropped");
+          });
+      }
     });
   };
 
@@ -688,43 +694,48 @@ const VisualizationPage: React.FC = () => {
           return;
         }
 
-        // Add semester checkbox
-        const checkboxGroup = svg
-          .append("foreignObject")
-          .attr("x", x + semesterWidth / 2 - 75)
-          .attr("y", y - 20)
-          .attr("width", 150)
-          .attr("height", 30)
-          .append("xhtml:div")
-          .style("display", "flex")
-          .style("align-items", "center")
-          .style("justify-content", "center");
+        console.log("Is simulation mode:", isSimulationMode);
 
-        if (!checkboxGroup || checkboxGroup.empty()) {
-          console.error("Failed to create checkbox group.");
-          return;
+        if (!isSimulationMode && hasDroppableCourses) {
+          // Add semester checkbox
+          const checkboxGroup = svg
+            .append("foreignObject")
+            .attr("x", x + semesterWidth / 2 - 75)
+            .attr("y", y - 20)
+            .attr("width", 150)
+            .attr("height", 30)
+            .append("xhtml:div")
+            .style("display", "flex")
+            .style("align-items", "center")
+            .style("justify-content", "center");
+
+          if (!checkboxGroup || checkboxGroup.empty()) {
+            console.error("Failed to create checkbox group.");
+            return;
+          }
+
+          // Use React state to determine the `checked` state
+          const isChecked = semester.subjects.every((subject: any) =>
+            dropFailCourses.some(
+              (course) =>
+                course.CID === subject.code && course.Type === "Dropped"
+            )
+          );
+
+          // Add semester label and checkbox
+          checkboxGroup
+            .append("label")
+            .style("display", "flex")
+            .style("align-items", "center")
+            .html(
+              `<input type="checkbox" ${
+                isChecked ? "checked" : ""
+              } /> Drop Semester`
+            )
+            .on("change", () => {
+              handleDropSemester(yearIndex, semesterIndex - 1);
+            });
         }
-
-        // Use React state to determine the `checked` state
-        const isChecked = semester.subjects.every((subject: any) =>
-          dropFailCourses.some(
-            (course) => course.CID === subject.code && course.Type === "Dropped"
-          )
-        );
-
-        // Add semester label and checkbox
-        checkboxGroup
-          .append("label")
-          .style("display", "flex")
-          .style("align-items", "center")
-          .html(
-            `<input type="checkbox" ${
-              isChecked ? "checked" : ""
-            } /> Drop Semester`
-          )
-          .on("change", () => {
-            handleDropSemester(yearIndex, semesterIndex - 1);
-          });
       });
     });
   };
@@ -870,6 +881,15 @@ const VisualizationPage: React.FC = () => {
   >
     Export to PDF
   </Button> */}
+        {/* TODO: Add back button for advisor to step back to student list page if role is Advisor*/}
+        {/* TODO: Check role */}
+        <Button
+          variant="contained"
+          onClick={() => window.history.back()}
+          sx={{ backgroundColor: "#256E65", color: "#fff" }}
+        >
+          Back
+        </Button>
       </Box>
     </Box>
   );
