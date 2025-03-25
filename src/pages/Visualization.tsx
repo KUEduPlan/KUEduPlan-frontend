@@ -851,45 +851,49 @@ const VisualizationPage: React.FC = () => {
       <Box
         sx={{
           display: "flex",
-          justifyContent: "flex-end",
+          justifyContent: "space-between",
           gap: 2,
           marginTop: 2,
         }}
       >
-        <Button
-          variant="contained"
-          onClick={resetView}
-          sx={{ backgroundColor: "#256E65", color: "#fff" }}
-        >
-          Reset View
-        </Button>
-        <Button
-          variant="contained"
-          disabled={!isAnyCheckboxSelected}
-          sx={{
-            backgroundColor: isAnyCheckboxSelected ? "#256E65" : "#ccc",
-            color: "#fff",
-          }}
-          onClick={handleSimulate}
-        >
-          Simulate
-        </Button>
-        {/* <Button
-    variant="contained"
-    onClick={exportToPDF}
-    sx={{ backgroundColor: "#256E65", color: "#fff" }}
-  >
-    Export to PDF
-  </Button> */}
-        {/* TODO: Add back button for advisor to step back to student list page if role is Advisor*/}
-        {/* TODO: Check role */}
-        <Button
-          variant="contained"
-          onClick={() => window.history.back()}
-          sx={{ backgroundColor: "#256E65", color: "#fff" }}
-        >
-          Back
-        </Button>
+        <Box>
+          {role === "advisor" && (
+            <Button
+              variant="contained"
+              onClick={() => window.history.back()}
+              sx={{ backgroundColor: "#256E65", color: "#fff" }}
+            >
+              Back
+            </Button>
+          )}
+        </Box>
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <Button
+            variant="contained"
+            onClick={resetView}
+            sx={{ backgroundColor: "#256E65", color: "#fff" }}
+          >
+            Reset View
+          </Button>
+          <Button
+            variant="contained"
+            disabled={!isAnyCheckboxSelected}
+            sx={{
+              backgroundColor: isAnyCheckboxSelected ? "#256E65" : "#ccc",
+              color: "#fff",
+            }}
+            onClick={handleSimulate}
+          >
+            Simulate
+          </Button>
+          {/* <Button
+            variant="contained"
+            onClick={exportToPDF}
+            sx={{ backgroundColor: "#256E65", color: "#fff" }}
+          >
+            Export to PDF
+          </Button> */}
+        </Box>
       </Box>
     </Box>
   );
