@@ -255,7 +255,7 @@ const CourseDetailsPage: React.FC = () => {
           backgroundColor: "#256E65",
         }}
         sx={{ marginTop: "20px" }}
-        onClick={() => navigate("/distribution")}
+        onClick={() => window.history.back()}
       >
         Back
       </Button>

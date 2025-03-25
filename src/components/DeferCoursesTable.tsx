@@ -95,7 +95,7 @@ const DeferCoursesTable: React.FC = () => {
     setSearchTerm("");
   };
 
-  const handleCourseClick = (courseCode: string) => {
+  const handleCourseClick = (courseCode: string, courseName: string) => {
     dispatch(fetchCourseDetail(courseCode))
       .unwrap()
       .then((result) => {
@@ -107,7 +107,9 @@ const DeferCoursesTable: React.FC = () => {
             confirmButtonText: "OK",
           });
         } else {
-          navigate(`/course-details/${courseCode}`);
+          navigate(`/course-details/${courseCode}`, {
+            state: { courseName }
+          });
         }
       })
       .catch((error) =>
@@ -180,23 +182,23 @@ const DeferCoursesTable: React.FC = () => {
           <TableBody>
             {filteredRows.map((row, index) => (
               <TableRow key={`${row.code}-${index}`} hover>
-                <TableCell>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      cursor: "pointer",
-                      color: "green",
-                      "&:hover": { textDecoration: "underline" },
-                      fontSize: "16px",
-                    }}
-                    onClick={() => handleCourseClick(row.code)}
-                  >
-                    {row.code}
-                  </Typography>
-                </TableCell>
-                <TableCell sx={{ fontSize: "16px" }}>{row.name}</TableCell>
-                <TableCell sx={{ fontSize: "16px" }}>{row.f}</TableCell>
-              </TableRow>
+              <TableCell>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    cursor: "pointer",
+                    color: "green",
+                    "&:hover": { textDecoration: "underline" },
+                    fontSize: "16px",
+                  }}
+                  onClick={() => handleCourseClick(row.code, row.name)}
+                >
+                  {row.code}
+                </Typography>
+              </TableCell>
+              <TableCell sx={{ fontSize: "16px" }}>{row.name}</TableCell>
+              <TableCell sx={{ fontSize: "16px" }}>{row.f}</TableCell>
+            </TableRow>
             ))}
           </TableBody>
         </Table>

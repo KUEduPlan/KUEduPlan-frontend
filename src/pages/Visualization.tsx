@@ -1,4 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import * as d3 from "d3";
 import { useSelector, useDispatch } from "react-redux";
 import {
@@ -7,6 +13,11 @@ import {
   Button,
   CircularProgress,
   Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  SelectChangeEvent,
 } from "@mui/material";
 import {
   fetchStudentData,
@@ -18,9 +29,11 @@ import { AppDispatch } from "../state/store";
 import "./visualization.css";
 import Swal from "sweetalert2";
 import { useParams } from "react-router-dom";
+import { generateGroupColors } from "../utils/colorUtils";
+import { ColorSchemeType, TimeStatus } from "../types/types";
 
-const nodeWidth = 200;
-const nodeHeight = 100;
+const nodeWidth = 150;
+const nodeHeight = 80;
 
 const generateRandomPastelColor = (existingColors: string[]) => {
   let color;
@@ -31,6 +44,12 @@ const generateRandomPastelColor = (existingColors: string[]) => {
     color = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   } while (existingColors.includes(color));
   return color;
+};
+
+const getCurrentBuddhistYear = (): string => {
+  const gregorianYear = new Date().getFullYear();
+  const buddhistYear = gregorianYear + 543 - 1; // Subtract 1 to get the academic year
+  return buddhistYear.toString().slice(-2);
 };
 
 const getSemesterColors = (numYears: number) => {
@@ -53,6 +72,24 @@ const getSemesterColors = (numYears: number) => {
   }
 
   return colors;
+};
+
+const timeColors = {
+  past: "#D7F4E3",
+  present: "#F3E8D9",
+  future: "#FFE8E6",
+};
+
+const getTimeStatus = (
+  courseYear: string,
+  currentBuddhistYear: string
+): TimeStatus => {
+  const courseYearNum = parseInt(courseYear);
+  const currentYearNum = parseInt(currentBuddhistYear);
+
+  if (courseYearNum < currentYearNum) return "past";
+  if (courseYearNum > currentYearNum) return "future";
+  return "present";
 };
 
 const VisualizationPage: React.FC = () => {
@@ -89,10 +126,8 @@ const VisualizationPage: React.FC = () => {
   const [focusNode, setFocusNode] = useState<string | null>(null);
   const [isAnyCheckboxSelected, setIsAnyCheckboxSelected] = useState(false);
   const [dropFailCourses, setDropFailCourses] = useState<any[]>([]);
-  const [semesterDropStatus, setSemesterDropStatus] = useState<{
-    [key: string]: boolean;
-  }>({});
   const [isSimulationMode, setIsSimulationMode] = useState(false);
+  const [colorScheme, setColorScheme] = useState<ColorSchemeType>("normal");
 
   const STUDENTID = loggedInStudentId;
 
@@ -117,6 +152,7 @@ const VisualizationPage: React.FC = () => {
     if (role === "curriculum_admin" || role === "advisor") {
       if (studentId) {
         const parsedStudentId = parseInt(studentId, 10);
+        console.log("parsedStudentId advisor", parsedStudentId);
         if (!isNaN(parsedStudentId)) {
           fetchInitialData(parsedStudentId);
         } else {
@@ -126,6 +162,7 @@ const VisualizationPage: React.FC = () => {
     } else if (role === "student") {
       if (username) {
         const parsedStudentId = parseInt(username.replace("b", ""), 10);
+        console.log("parsedStudentId student", parsedStudentId);
         if (!isNaN(parsedStudentId)) {
           fetchInitialData(parsedStudentId);
         } else {
@@ -134,6 +171,42 @@ const VisualizationPage: React.FC = () => {
       }
     }
   }, [dispatch, studentId, accessToken, role, username]);
+
+  const groupColors = useMemo(() => {
+    if (colorScheme === "group" && curriculum.length > 0) {
+      console.log("Generating group colors...");
+      const groups = new Set<string>();
+      curriculum.forEach((year: { semesters: any[] }) => {
+        year.semesters.forEach((semester) => {
+          semester.subjects.forEach((subject: { group: string }) => {
+            if (subject.group) {
+              groups.add(subject.group);
+            }
+          });
+        });
+      });
+      console.log("Generating colors for groups:", Array.from(groups));
+      console.log(
+        "Generated group colors:",
+        generateGroupColors(Array.from(groups))
+      );
+      return generateGroupColors(Array.from(groups));
+    }
+    return {};
+  }, [colorScheme, curriculum]);
+
+  const handleColorSchemeChange = useCallback(
+    (event: SelectChangeEvent<ColorSchemeType>) => {
+      const newScheme = event.target.value as ColorSchemeType;
+      console.log("Color scheme changed to:", newScheme);
+      setColorScheme(newScheme);
+    },
+    []
+  );
+
+  useEffect(() => {
+    console.log("Color scheme changed to:", colorScheme);
+  }, [colorScheme]);
 
   const getNodePosition = (node: any) => {
     const x = node.level * nodeWidth * 2 + nodeWidth / 2;
@@ -182,6 +255,7 @@ const VisualizationPage: React.FC = () => {
             layer,
             subject: subject.name,
             grade: subject.grade,
+            group: subject.group,
             prerequisites: subject.prerequisites,
             color: semesterColors[yearIndex * 2 + (semesterIndex - 1)],
             year: year.year,
@@ -433,183 +507,251 @@ const VisualizationPage: React.FC = () => {
     }
   };
 
-  const renderNodes = (svg: any) => {
-    svg.selectAll(".node").remove();
+  const renderNodes = useCallback(
+    (svg: any) => {
+      svg.selectAll(".node").remove();
 
-    nodes.forEach((node) => {
-      const [x, y] = getNodePosition(node);
+      const currentBuddhistYear = getCurrentBuddhistYear();
+      console.log("currentBuddhistYear", currentBuddhistYear);
 
-      const nodeGroup = svg
-        .append("g")
-        .attr("class", "node")
-        .attr("transform", `translate(${x}, ${y})`)
-        .attr("filter", "url(#shadow)")
-        .on("click", () => handleNodeClick(node.id));
+      nodes.forEach((node) => {
+        const [x, y] = getNodePosition(node);
 
-      // Draw rectangle
-      nodeGroup.append("rect");
-      nodeGroup
-        .append("rect")
-        .attr("width", nodeWidth)
-        .attr("height", nodeHeight)
-        .attr("rx", 10)
-        .attr("ry", 10)
-        .attr("fill", () => {
-          if (!focusNode) return node.color;
-          if (focusNode === node.id) return "#FFD700";
+        const nodeGroup = svg
+          .append("g")
+          .attr("class", "node")
+          .attr("transform", `translate(${x}, ${y})`)
+          .attr("filter", "url(#shadow)")
+          .on("click", () => handleNodeClick(node.id));
 
-          // Check if this node is related to the focused node through any edge
-          const isRelated = edges.some(
-            (e) =>
-              (e.source === node.id && e.target === focusNode) ||
-              (e.target === node.id && e.source === focusNode)
-          );
-          return isRelated ? node.color : "#D3D3D3";
-        });
+        console.log("groupColors[node.group]", groupColors[node.group]);
+        console.log("node.group", node.group);
 
-      // Add course code (show original ID without year/semester suffix)
-      nodeGroup
-        .append("text")
-        .attr("x", 10)
-        .attr("y", 20)
-        .attr("font-size", "14px")
-        .attr("font-family", "Prompt, Arial, sans-serif")
-        .attr("font-weight", "bold")
-        .attr("fill", "black")
-        .text(node.originalId); // Show original course code
+        let nodeColor: string;
+        switch (colorScheme) {
+          case "group":
+            nodeColor = groupColors[node.group] || "#FFFFFF";
+            break;
+          case "time":
+            const timeStatus = getTimeStatus(node.year, currentBuddhistYear);
+            console.log("timeStatus with node.year", timeStatus, node.year);
+            nodeColor = timeColors[timeStatus as keyof typeof timeColors];
+            break;
+          default:
+            nodeColor = node.color;
+        }
 
-      // Add course name, grade, etc...
-      // Add course name
-      nodeGroup
-        .append("foreignObject")
-        .attr("x", 10)
-        .attr("y", 30)
-        .attr("width", nodeWidth - 20)
-        .attr("height", nodeHeight - 50)
-        .append("xhtml:div")
-        .style("font-size", "13px")
-        .style("font-family", "Prompt, Arial, sans-serif")
-        .style("color", "gray")
-        .style("overflow", "hidden")
-        .style("text-overflow", "ellipsis")
-        .style("white-space", "normal")
-        .style("word-wrap", "break-word")
-        .text(node.subject);
+        // Draw rectangle
+        nodeGroup.append("rect");
+        nodeGroup
+          .append("rect")
+          .attr("width", nodeWidth)
+          .attr("height", nodeHeight)
+          .attr("rx", 10)
+          .attr("ry", 10)
+          .attr("fill", () => {
+            if (!focusNode) return nodeColor;
+            if (focusNode === node.id) return "#FFD700";
 
-      // Add grade
-      nodeGroup
-        .append("text")
-        .attr("x", nodeWidth - 10)
-        .attr("y", 15)
-        .attr("font-size", "14px")
-        .attr("font-family", "Prompt, Arial, sans-serif")
-        .attr("font-weight", "bold")
-        .attr("fill", () => (node.grade === "F" ? "red" : "gray"))
-        .attr("text-anchor", "end")
-        .text(() => (node.grade ? node.grade : ""));
+            // Check if this node is related to the focused node through any edge
+            const isRelated = edges.some(
+              (e) =>
+                (e.source === node.id && e.target === focusNode) ||
+                (e.target === node.id && e.source === focusNode)
+            );
+            return isRelated ? nodeColor : "#D3D3D3";
+          });
 
-      if (node.grade === "-" && !isSimulationMode) {
-        // Add F and W/N checkboxes
-        const checkboxGroup = nodeGroup
+        // Add course code (show original ID without year/semester suffix)
+        nodeGroup
+          .append("text")
+          .attr("x", 10)
+          .attr("y", 20)
+          .attr("font-size", "12px")
+          .attr("font-family", "Prompt, Arial, sans-serif")
+          .attr("font-weight", "bold")
+          .attr("fill", "black")
+          .text(node.originalId); // Show original course code
+
+        // Add course name, grade, etc...
+        // Add course name
+        nodeGroup
           .append("foreignObject")
           .attr("x", 10)
-          .attr("y", nodeHeight + 5)
+          .attr("y", 30)
           .attr("width", nodeWidth - 20)
-          .attr("height", 30)
+          .attr("height", nodeHeight - 50)
           .append("xhtml:div")
-          .style("display", () => (node.grade === "-" ? "flex" : "none"))
-          .style("justify-content", "space-between");
+          .style("font-size", "11px")
+          .style("font-family", "Prompt, Arial, sans-serif")
+          .style("color", "gray")
+          .style("overflow", "hidden")
+          .style("text-overflow", "ellipsis")
+          .style("white-space", "normal")
+          .style("word-wrap", "break-word")
+          .text(node.subject);
 
-        // Add F checkbox
-        checkboxGroup
-          .append("label")
-          .style("display", "flex")
-          .style("align-items", "center")
-          .html(() => {
-            const isFailed = dropFailCourses.some(
-              (course) =>
-                course.CID === node.originalId && course.Type === "Failed"
-            );
-            return `
+        // Add grade
+        nodeGroup
+          .append("text")
+          .attr("x", nodeWidth - 10)
+          .attr("y", 15)
+          .attr("font-size", "12px")
+          .attr("font-family", "Prompt, Arial, sans-serif")
+          .attr("font-weight", "bold")
+          .attr("fill", () => (node.grade === "F" ? "red" : "gray"))
+          .attr("text-anchor", "end")
+          .text(() => (node.grade ? node.grade : ""));
+
+        if (node.grade === "-" && !isSimulationMode) {
+          // Add F and W/N checkboxes
+          const checkboxGroup = nodeGroup
+            .append("foreignObject")
+            .attr("x", 10)
+            .attr("y", nodeHeight + 5)
+            .attr("width", nodeWidth - 20)
+            .attr("height", 30)
+            .append("xhtml:div")
+            .style("display", () => (node.grade === "-" ? "flex" : "none"))
+            .style("justify-content", "space-between");
+
+          // Add F checkbox
+          checkboxGroup
+            .append("label")
+            .style("display", "flex")
+            .style("align-items", "center")
+            .html(() => {
+              const isFailed = dropFailCourses.some(
+                (course) =>
+                  course.CID === node.originalId && course.Type === "Failed"
+              );
+              return `
           <input type="checkbox" ${isFailed ? "checked" : ""} />
           F
         `;
-          })
-          .on("click", (event: any) => {
-            event.stopPropagation();
-          })
-          .on("change", () => {
-            handleCourseToggle(node.id, "Failed");
-          });
+            })
+            .on("click", (event: any) => {
+              event.stopPropagation();
+            })
+            .on("change", () => {
+              handleCourseToggle(node.id, "Failed");
+            });
 
-        // Add W/N checkbox
-        checkboxGroup
-          .append("label")
-          .style("display", "flex")
-          .style("align-items", "center")
-          .html(() => {
-            const isDropped = dropFailCourses.some(
-              (course) =>
-                course.CID === node.originalId && course.Type === "Dropped"
-            );
-            return `
+          // Add W/N checkbox
+          checkboxGroup
+            .append("label")
+            .style("display", "flex")
+            .style("align-items", "center")
+            .html(() => {
+              const isDropped = dropFailCourses.some(
+                (course) =>
+                  course.CID === node.originalId && course.Type === "Dropped"
+              );
+              return `
           <input type="checkbox" ${isDropped ? "checked" : ""} />
           W/N
         `;
-          })
-          .on("click", (event: any) => {
-            event.stopPropagation();
-          })
-          .on("change", () => {
-            handleCourseToggle(node.id, "Dropped");
-          });
-      }
-    });
-  };
-
-  const renderEdges = (svg: any) => {
-    const linkGen = d3
-      .linkHorizontal()
-      .x((d: any) => d[0])
-      .y((d: any) => d[1]);
-
-    svg.selectAll(".edge").remove();
-
-    svg
-      .selectAll(".edge")
-      .data(edges)
-      .join("path")
-      .attr("class", "edge")
-      .attr("d", (d: any) => {
-        const sourceNode = nodes.find((n) => n.id === d.source);
-        const targetNode = nodes.find((n) => n.id === d.target);
-        if (!sourceNode || !targetNode) return null;
-
-        const sourcePos = getNodePosition(sourceNode);
-        const targetPos = getNodePosition(targetNode);
-
-        return linkGen({
-          source: [sourcePos[0] + nodeWidth, sourcePos[1] + nodeHeight / 2],
-          target: [targetPos[0], targetPos[1] + nodeHeight / 2],
-        });
-      })
-      .attr("fill", "none")
-      .attr("stroke", (d: any) => {
-        if (!focusNode) return "none";
-        if (focusNode === d.source) {
-          const targetNode = nodes.find((n) => n.id === d.target);
-          return targetNode ? targetNode.color : "gray";
+            })
+            .on("click", (event: any) => {
+              event.stopPropagation();
+            })
+            .on("change", () => {
+              handleCourseToggle(node.id, "Dropped");
+            });
         }
-        if (focusNode === d.target) {
+      });
+    },
+    [
+      nodes,
+      groupColors,
+      colorScheme,
+      isSimulationMode,
+      handleNodeClick,
+      focusNode,
+      edges,
+      dropFailCourses,
+      handleCourseToggle,
+    ]
+  );
+
+  const renderEdges = useCallback(
+    (svg: any) => {
+      const linkGen = d3
+        .linkHorizontal()
+        .x((d: any) => d[0])
+        .y((d: any) => d[1]);
+
+      svg.selectAll(".edge").remove();
+
+      const currentBuddhistYear = getCurrentBuddhistYear();
+
+      svg
+        .selectAll(".edge")
+        .data(edges)
+        .join("path")
+        .attr("class", "edge")
+        .attr("d", (d: any) => {
           const sourceNode = nodes.find((n) => n.id === d.source);
-          return sourceNode ? sourceNode.color : "gray";
-        }
-        return "none";
-      })
-      .attr("stroke-width", 3);
-  };
+          const targetNode = nodes.find((n) => n.id === d.target);
+          if (!sourceNode || !targetNode) return null;
+
+          const sourcePos = getNodePosition(sourceNode);
+          const targetPos = getNodePosition(targetNode);
+
+          return linkGen({
+            source: [sourcePos[0] + nodeWidth, sourcePos[1] + nodeHeight / 2],
+            target: [targetPos[0], targetPos[1] + nodeHeight / 2],
+          });
+        })
+        .attr("fill", "none")
+        .attr("stroke", (d: any) => {
+          if (!focusNode) return "none";
+
+          const targetNode = nodes.find((n) => n.id === d.target);
+          const sourceNode = nodes.find((n) => n.id === d.source);
+
+          if (!targetNode || !sourceNode) return "none";
+
+          if (focusNode === d.source) {
+            // Determine target node color based on current scheme
+            switch (colorScheme) {
+              case "group":
+                return groupColors[targetNode.group] || targetNode.color;
+              case "time":
+                const status = getTimeStatus(
+                  targetNode.year,
+                  currentBuddhistYear
+                );
+                return timeColors[status as keyof typeof timeColors];
+              default:
+                return targetNode.color;
+            }
+          }
+
+          if (focusNode === d.target) {
+            // Determine source node color based on current scheme
+            switch (colorScheme) {
+              case "group":
+                return groupColors[sourceNode.group] || sourceNode.color;
+              case "time":
+                const status = getTimeStatus(
+                  targetNode.year,
+                  currentBuddhistYear
+                );
+                return timeColors[status as keyof typeof timeColors];
+              default:
+                return sourceNode.color;
+            }
+          }
+          return "none";
+        })
+        .attr("stroke-width", 3);
+    },
+    [edges, nodes, focusNode, colorScheme, groupColors]
+  );
 
   // Render year and semester labels with checkboxes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const renderLabels = (svg: any) => {
     if (!curriculum || curriculum.length === 0) {
       console.warn("Curriculum is empty or undefined.");
@@ -749,7 +891,14 @@ const VisualizationPage: React.FC = () => {
     renderLabels(svg);
     renderNodes(svg);
     renderEdges(svg);
-  }, [dropFailCourses, focusNode, isSimulated]);
+  }, [
+    dropFailCourses,
+    focusNode,
+    isSimulated,
+    renderNodes,
+    renderEdges,
+    renderLabels,
+  ]);
 
   useEffect(() => {
     if (curriculum.length > 0) {
@@ -785,7 +934,7 @@ const VisualizationPage: React.FC = () => {
     });
 
     svg.attr("height", maxY || 500);
-  }, [nodes, edges, focusNode]);
+  }, [nodes, edges, focusNode, renderEdges, renderNodes, renderLabels]);
 
   if (loading) {
     return (
@@ -827,9 +976,26 @@ const VisualizationPage: React.FC = () => {
       >
         Plan and Visualize
       </Typography>
-      <Typography sx={{ color: "black", fontSize: "1.2rem", padding: "5px" }}>
-        {studentId} {student?.StdFirstName} {student?.StdLastName}
-      </Typography>
+      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+        <Typography sx={{ color: "black", fontSize: "1.2rem", padding: "5px" }}>
+          {studentId} {student?.StdFirstName} {student?.StdLastName}
+        </Typography>
+
+        <FormControl sx={{ minWidth: 200, marginLeft: 2 }}>
+          <InputLabel>Color Scheme</InputLabel>
+          <Select
+            value={colorScheme}
+            label="Color Scheme"
+            onChange={handleColorSchemeChange}
+            inputProps={{ "aria-label": "Color scheme selection" }}
+          >
+            <MenuItem value="normal">Normal Mode</MenuItem>
+            <MenuItem value="group">Group Mode</MenuItem>
+            <MenuItem value="time">Time Mode</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
+
       <Box
         sx={{
           border: "1px solid #ccc",

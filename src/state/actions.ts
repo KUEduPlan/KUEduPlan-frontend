@@ -1,6 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { CurriculumState } from "../state/curriculumSlice";
-import { group } from "console";
 
 // const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const API_BASE_URL = "http://localhost:8000";
@@ -9,7 +8,7 @@ export const login = createAsyncThunk(
   "auth/login",
   async (
     { username, password }: { username: string; password: string },
-    { rejectWithValue, dispatch }
+    { rejectWithValue }
   ) => {
     try {
       const formData = new URLSearchParams();
@@ -44,6 +43,13 @@ export const login = createAsyncThunk(
       const protectedData = await protectedResponse.json();
       console.log("Protected response:", protectedData);
 
+      localStorage.setItem('accessToken', loginData.access_token);
+      localStorage.setItem('userData', JSON.stringify({
+        username: loginData.username,
+        role: protectedData.role,
+        planId: protectedData.plan_id
+      }));
+
       return {
         username: loginData.username,
         accessToken: loginData.access_token,
@@ -53,7 +59,45 @@ export const login = createAsyncThunk(
       };
     } catch (error: any) {
       console.error("Error during login:", error);
-      return rejectWithValue(error.message);
+      return rejectWithValue((error as Error).message);
+    }
+  }
+);
+
+export const checkAuth = createAsyncThunk(
+  "auth/checkAuth",
+  async (_, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+      
+      if (!token) {
+        throw new Error('No token found');
+      }
+
+      // Verify token is still valid
+      const response = await fetch(`${API_BASE_URL}/protected`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Token validation failed');
+      }
+
+      return {
+        username: userData.username,
+        accessToken: token,
+        role: userData.role,
+        planId: userData.planId,
+        loggedIn: true
+      };
+    } catch (error) {
+      // Clear invalid tokens
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('userData');
+      return rejectWithValue((error as Error).message);
     }
   }
 );
@@ -78,6 +122,10 @@ export const logout = createAsyncThunk(
       if (!response.ok) {
         throw new Error("Failed to logout");
       }
+
+      // Clear storage
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('userData');
 
       return null;
     } catch (error: any) {
@@ -155,7 +203,7 @@ const transformStudyPlan = (studyPlan: any[]) => {
       grade: grade,
       name: course.CNAME,
       semester: semester, // Add semester information for debugging
-      group: course.GNAME,
+      group: course.GID,
     });
   });
 
@@ -173,27 +221,11 @@ export const fetchStudyPlan = createAsyncThunk(
   async (studentId: number, { rejectWithValue, getState }) => {
     try {
       const { curriculum } = getState() as { curriculum: CurriculumState };
-
-      const studentDataResponse = await fetch(
-        `${API_BASE_URL}/student_data/6410545541`,
-        {
-          headers: {
-            Authorization: `Bearer ${curriculum.accessToken}`,
-          },
-        }
-      );
-      if (!studentDataResponse.ok) {
-        throw new Error(
-          `Failed to fetch student data: ${studentDataResponse.statusText}`
-        );
-      }
-      const studentData = await studentDataResponse.json();
-      const planId = studentData[0].PlanID;
-      console.log("student data:", studentData);
+      const planId = curriculum.planId
       console.log("Plan ID:", planId);
 
       const studyPlanResponse = await fetch(
-        `${API_BASE_URL}/open_plan/6410545541`,
+        `${API_BASE_URL}/open_plan/${studentId}`,
         {
           method: "POST",
           headers: {
@@ -211,10 +243,6 @@ export const fetchStudyPlan = createAsyncThunk(
       }
 
       const data = await studyPlanResponse.json();
-      // const uniqueData = data
-
-      console.log("Unique data:", data);
-
       return transformStudyPlan(data);
     } catch (error: any) {
       return rejectWithValue(error.message);

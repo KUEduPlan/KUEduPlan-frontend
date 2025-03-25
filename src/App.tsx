@@ -6,8 +6,8 @@ import {
   Navigate,
 } from "react-router-dom";
 import { ThemeProvider, createTheme, CssBaseline } from "@mui/material";
-import { useSelector } from "react-redux";
-import { RootState } from "./state/store";
+import { useDispatch, useSelector } from "react-redux";
+import { AppDispatch, RootState } from "./state/store";
 import Header from "./components/Header";
 import DistributionPage from "./pages/DistributionPage";
 import VisualizationPage from "./pages/Visualization";
@@ -18,6 +18,8 @@ import StudentListPage from "./pages/StudentListPage";
 import OpenPlanSettingPage from "./pages/OpenPlanSettingPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import Loading from "./components/Loading";
+import { checkAuth } from "./state/actions";
+import { UserRole } from "./types/types";
 
 const theme = createTheme({
   typography: {
@@ -31,21 +33,29 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const role = useSelector((state: RootState) => state.curriculum.role);
   const loggedIn = useSelector((state: RootState) => state.curriculum.loggedIn);
+  const dispatch = useDispatch<AppDispatch>();
 
-  // Simulate an authentication check
   useEffect(() => {
-    const checkAuth = async () => {
-      // Simulate a delay for authentication check
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setIsLoading(false);
+    const initializeAuth = async () => {
+      try {
+        await dispatch(checkAuth()).unwrap();
+      } catch (error) {
+        console.log("No valid session found");
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    checkAuth();
-  }, []);
+    initializeAuth();
+  }, [dispatch]);
 
   if (isLoading) {
     return <Loading />;
   }
+
+  const isValidRole = (role: string | undefined | null): role is UserRole => {
+    return ["student", "advisor", "curriculum_admin"].includes(role || "");
+  };
 
   return (
     <ThemeProvider theme={theme}>
@@ -62,7 +72,7 @@ const App: React.FC = () => {
             element={
               <ProtectedRoute
                 loggedIn={loggedIn}
-                role={role}
+                role={isValidRole(role) ? role : undefined}
                 allowedRoles={["student", "advisor", "curriculum_admin"]}
               >
                 <VisualizationPage />
@@ -74,7 +84,7 @@ const App: React.FC = () => {
             element={
               <ProtectedRoute
                 loggedIn={loggedIn}
-                role={role}
+                role={isValidRole(role) ? role : undefined}
                 allowedRoles={["student", "advisor", "curriculum_admin"]}
               >
                 <VisualizationPage />
@@ -86,7 +96,7 @@ const App: React.FC = () => {
             element={
               <ProtectedRoute
                 loggedIn={loggedIn}
-                role={role}
+                role={isValidRole(role) ? role : undefined}
                 allowedRoles={["curriculum_admin"]}
               >
                 <DistributionPage />
@@ -98,7 +108,7 @@ const App: React.FC = () => {
             element={
               <ProtectedRoute
                 loggedIn={loggedIn}
-                role={role}
+                role={isValidRole(role) ? role : undefined}
                 allowedRoles={["student", "advisor", "curriculum_admin"]}
               >
                 <CourseDetailsPage />
@@ -110,7 +120,7 @@ const App: React.FC = () => {
             element={
               <ProtectedRoute
                 loggedIn={loggedIn}
-                role={role}
+                role={isValidRole(role) ? role : undefined}
                 allowedRoles={["advisor", "curriculum_admin"]}
               >
                 <StudentListPage />
@@ -122,7 +132,7 @@ const App: React.FC = () => {
             element={
               <ProtectedRoute
                 loggedIn={loggedIn}
-                role={role}
+                role={isValidRole(role) ? role : undefined}
                 allowedRoles={["curriculum_admin"]}
               >
                 <OpenPlanSettingPage />

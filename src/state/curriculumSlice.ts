@@ -7,6 +7,7 @@ import {
   login,
   logout,
 } from "./actions";
+import { UserRole } from "../types/types";
 
 interface Subject {
   fail: boolean;
@@ -40,7 +41,7 @@ export interface CurriculumState {
   username: string | null;
   accessToken: string | null;
   tokenType: string | null;
-  role: string | null;
+  role: UserRole | null;
   planId: number | null;
   loggedInStudentId: string | null;
 }
