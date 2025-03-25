@@ -18,6 +18,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { fetchDistributionList, fetchCourseDetail } from "../state/actions";
 import ClearIcon from "@mui/icons-material/Clear";
+import Swal from "sweetalert2";
 
 interface Row {
   code: string;
@@ -97,7 +98,18 @@ const DeferCoursesTable: React.FC = () => {
   const handleCourseClick = (courseCode: string) => {
     dispatch(fetchCourseDetail(courseCode))
       .unwrap()
-      .then(() => navigate(`/course-details/${courseCode}`))
+      .then((result) => {
+        if (result === "Subject had no data") {
+          Swal.fire({
+            title: "Sorry",
+            text: "This course has no data",
+            icon: "error",
+            confirmButtonText: "OK",
+          });
+        } else {
+          navigate(`/course-details/${courseCode}`);
+        }
+      })
       .catch((error) =>
         console.error("Failed to fetch course details:", error)
       );
