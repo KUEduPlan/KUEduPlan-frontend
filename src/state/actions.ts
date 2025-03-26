@@ -307,7 +307,7 @@ export const fetchPrerequisiteCourses = createAsyncThunk(
 export const submitDropFailCourses = createAsyncThunk(
   "curriculum/submitDropFailCourses",
   async (
-    { studentId, courses }: { studentId: number; courses: any[] },
+    { studentId, courses }: { studentId: string; courses: any[] },
     { rejectWithValue, getState }
   ) => {
     try {
@@ -315,8 +315,10 @@ export const submitDropFailCourses = createAsyncThunk(
 
       const planId = curriculum.planId;
 
+      console.log("Student ID:", studentId);
+
       const requestBody = {
-        StdID: studentId.toString(),
+        StdID: studentId,
         Plan_ID: planId,
         Courses: courses.map((course) => ({
           CID: course.CID,

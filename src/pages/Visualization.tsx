@@ -475,7 +475,7 @@ const VisualizationPage: React.FC = () => {
 
       const response = await dispatch(
         submitDropFailCourses({
-          studentId: STUDENTID,
+          studentId: role === "student" ? STUDENTID : studentId,
           courses: formattedCourses,
         })
       ).unwrap();
