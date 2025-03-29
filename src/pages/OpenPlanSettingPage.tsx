@@ -26,8 +26,6 @@ const OpenPlanSettingPage: React.FC = () => {
   const [groupFilter, setGroupFilter] = useState<string[]>([]);
   const [sortField, setSortField] = useState<"code" | "name" | "group">("code");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  const [lostCourses, setLostCourses] = useState<any[]>([]);
-  const [isLoadingLostCourses, setIsLoadingLostCourses] = useState(false);
 
   const {
     data: courses,
@@ -35,46 +33,12 @@ const OpenPlanSettingPage: React.FC = () => {
     error,
   } = useAppSelector((state) => state.openPlan);
   const dispatch = useAppDispatch();
-  const { planId, accessToken } = useAppSelector((state) => state.curriculum);
+  const { planId } = useAppSelector((state) => state.curriculum);
   const role = useAppSelector((state) => state.curriculum.role);
 
-  console.log("Plan ID:", planId);
-
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch regular courses
-        await dispatch(fetchOpenPlanTable());
-
-        // Fetch lost courses if we have a planId
-        if (planId) {
-          setIsLoadingLostCourses(true);
-          const response = await fetch(
-            "http://127.0.0.1:8000/open_plan_lost_sub",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${accessToken}`,
-              },
-              body: JSON.stringify({ Plan_ID: planId }), // Corrected field name
-            }
-          );
-
-          if (response.ok) {
-            const data = await response.json();
-            setLostCourses(data);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        setIsLoadingLostCourses(false);
-      }
-    };
-
-    fetchData();
-  }, [dispatch, planId, accessToken]);
+    dispatch(fetchOpenPlanTable());
+  }, [dispatch]);
 
   const handleResetPlan = async () => {
     if (!planId) {
@@ -112,21 +76,7 @@ const OpenPlanSettingPage: React.FC = () => {
       });
 
       // Refresh data
-      await dispatch(fetchOpenPlanTable());
-
-      const response = await fetch("http://127.0.0.1:8000/open_plan_lost_sub", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ Plan_ID: planId }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setLostCourses(data);
-      }
+      dispatch(fetchOpenPlanTable());
     } catch (error: any) {
       Swal.fire({
         icon: "error",
@@ -137,11 +87,8 @@ const OpenPlanSettingPage: React.FC = () => {
   };
 
   const uniqueGroups = Array.from(
-    new Set([
-      ...courses.map((course) => course.group),
-      ...lostCourses.map((course) => course.group_name),
-    ])
-  ).filter(Boolean);
+    new Set(courses.map((course) => course.group))
+  );
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchText(event.target.value);
@@ -158,64 +105,41 @@ const OpenPlanSettingPage: React.FC = () => {
     setSortField(field);
   };
 
-  const handleToggleSemester = async (
+  const handleToggleSemester = (
     row: any,
     semester: "sem1" | "sem2",
     isChecked: boolean
   ) => {
-    try {
-      await dispatch(toggleSemester({ row, semester, isChecked })).unwrap();
-    } catch (error) {
-      console.error("Failed to toggle semester:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Update Failed",
-        text: "Could not update semester selection",
-      });
-    }
+    dispatch(toggleSemester({ row, semester, isChecked }));
   };
 
-  const filteredCourses = [
-    ...courses.filter((course) => {
+  const filteredCourses = courses
+    .filter((course) => {
       const matchesSearch =
         course.name.toLowerCase().includes(searchText.toLowerCase()) ||
         course.code.toLowerCase().includes(searchText.toLowerCase());
       const matchesGroup =
         groupFilter.length === 0 || groupFilter.includes(course.group);
       return matchesSearch && matchesGroup;
-    }),
-    ...lostCourses.map((lostCourse) => ({
-      code: lostCourse.subject_code,
-      name: lostCourse.subject_name,
-      group: lostCourse.group_name,
-      sem1: false,
-      sem2: false,
-      Plan_ID: planId || 0,
-      CID: lostCourse.subject_code,
-      CNAME: lostCourse.subject_name,
-      GID: lostCourse.group_no,
-      GNAME: lostCourse.group_name,
-      ALLOWYEAR: lostCourse.class_year,
-      isLostCourse: true,
-    })),
-  ].sort((a, b) => {
-    if (sortField === "code") {
-      return sortOrder === "asc"
-        ? a.code.localeCompare(b.code)
-        : b.code.localeCompare(a.code);
-    } else if (sortField === "name") {
-      return sortOrder === "asc"
-        ? a.name.localeCompare(b.name)
-        : b.name.localeCompare(a.name);
-    } else if (sortField === "group") {
-      return sortOrder === "asc"
-        ? a.group.localeCompare(b.group)
-        : b.group.localeCompare(a.group);
-    }
-    return 0;
-  });
+    })
+    .sort((a, b) => {
+      if (sortField === "code") {
+        return sortOrder === "asc"
+          ? a.code.localeCompare(b.code)
+          : b.code.localeCompare(a.code);
+      } else if (sortField === "name") {
+        return sortOrder === "asc"
+          ? a.name.localeCompare(b.name)
+          : b.name.localeCompare(a.name);
+      } else if (sortField === "group") {
+        return sortOrder === "asc"
+          ? a.group.localeCompare(b.group)
+          : b.group.localeCompare(a.group);
+      }
+      return 0;
+    });
 
-  if (loading || isLoadingLostCourses) {
+  if (loading) {
     return (
       <Box
         display="flex"
@@ -228,6 +152,7 @@ const OpenPlanSettingPage: React.FC = () => {
     );
   }
 
+  // Error state
   if (error) {
     return (
       <Alert severity="error" sx={{ margin: "20px" }}>
@@ -247,10 +172,13 @@ const OpenPlanSettingPage: React.FC = () => {
           gap: 2,
         }}
       >
+  
+        {/* Center - Title */}
         <Typography variant="h5" sx={{ flexGrow: 1 }}>
           Open Plan Settings
         </Typography>
-
+  
+        {/* Right side - Reset Plan button */}
         <Button
           variant="contained"
           color="error"
@@ -260,7 +188,8 @@ const OpenPlanSettingPage: React.FC = () => {
           Reset Plan
         </Button>
       </Box>
-
+  
+      {/* Filters and Search Bar */}
       <Box
         sx={{
           display: "flex",
@@ -270,6 +199,7 @@ const OpenPlanSettingPage: React.FC = () => {
           gap: 2,
         }}
       >
+        {/* Group Filter */}
         <FormControl sx={{ minWidth: 200 }}>
           <InputLabel>Group</InputLabel>
           <Select
@@ -287,6 +217,7 @@ const OpenPlanSettingPage: React.FC = () => {
           </Select>
         </FormControl>
 
+        {/* Search Bar */}
         <TextField
           size="small"
           placeholder="Search by course name or code"
@@ -296,6 +227,7 @@ const OpenPlanSettingPage: React.FC = () => {
         />
       </Box>
 
+      {/* OpenPlanTable */}
       <OpenPlanTable
         rows={filteredCourses}
         sortField={sortField}
@@ -305,20 +237,20 @@ const OpenPlanSettingPage: React.FC = () => {
       />
 
       <Box>
-        {role === "curriculum_admin" && (
-          <Button
-            variant="contained"
-            onClick={() => window.history.back()}
-            sx={{
-              backgroundColor: "#256E65",
-              color: "#fff",
-              marginTop: 4,
-            }}
-          >
-            Back
-          </Button>
-        )}
-      </Box>
+          {role === "curriculum_admin" && (
+            <Button
+              variant="contained"
+              onClick={() => window.history.back()}
+              sx={{ 
+                backgroundColor: "#256E65", 
+                color: "#fff",
+                marginTop: 4
+              }}
+            >
+              Back
+            </Button>
+          )}
+        </Box>
     </Box>
   );
 };
