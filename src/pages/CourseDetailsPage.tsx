@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Box, Typography, Checkbox, Button } from "@mui/material";
 import { Bar } from "react-chartjs-2";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -38,6 +38,8 @@ const CourseDetailsPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch: AppDispatch = useDispatch();
   const { courseCode } = useParams<{ courseCode: string }>();
+  const location = useLocation();
+  const courseName = location.state?.courseName || "";
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
   const userInfo = useSelector((state: RootState) => state.curriculum);
 
@@ -262,7 +264,7 @@ const CourseDetailsPage: React.FC = () => {
         Distribution
       </Typography>
       <Typography variant="h6" sx={{ marginBottom: "20px", textAlign: "left" }}>
-        {courseCode} -{" "}
+        {courseCode} -{" "}{courseName}
       </Typography>
       <Box
         sx={{
