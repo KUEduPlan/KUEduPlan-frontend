@@ -174,7 +174,7 @@ const DeferCoursesTable: React.FC = () => {
                   direction={orderBy === "f" ? order : "asc"}
                   onClick={() => handleSort("f")}
                 >
-                  F
+                  Number of F students
                 </TableSortLabel>
               </TableCell>
             </TableRow>

@@ -38,8 +38,7 @@ const CourseDetailsPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch: AppDispatch = useDispatch();
   const { courseCode } = useParams<{ courseCode: string }>();
-  // const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-  const API_BASE_URL = "http://localhost:8000";
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
   const userInfo = useSelector((state: RootState) => state.curriculum);
 
   const originalCourseDetails = useSelector(
@@ -69,7 +68,63 @@ const CourseDetailsPage: React.FC = () => {
     }
   }, [originalCourseDetails]);
 
-  // Handle checkbox changes
+  const allChecked = originalCourseDetails 
+    ? Object.keys(eligibleData).length > 0 && 
+      Object.values(eligibleData).every(val => val)
+    : false;
+
+  const handleCheckAllChange = async () => {
+    if (!originalCourseDetails || !courseCode || !userInfo.planId) return;
+
+    const newCheckedState = !allChecked;
+    const newEligibleData: { [key: string]: boolean } = {};
+    const years = Object.keys(originalCourseDetails);
+
+    years.forEach(year => {
+      newEligibleData[year] = newCheckedState;
+    });
+    setEligibleData(newEligibleData);
+
+    try {
+      if (newCheckedState) {
+        const response = await fetch(
+          `${API_BASE_URL}/allow_sub_dis_cid/${courseCode}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${userInfo.accessToken}`,
+            },
+            body: JSON.stringify({ Plan_ID: userInfo.planId }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("Expected JSON response");
+        }
+
+        const updatedDetails = await response.json();
+        setDisplayCourseDetails(updatedDetails);
+      } else {
+        setDisplayCourseDetails(originalCourseDetails);
+      }
+    } catch (error) {
+      console.error("Error updating course eligibility:", error);
+      setEligibleData(prev => {
+        const revertedState: { [key: string]: boolean } = {};
+        years.forEach(year => {
+          revertedState[year] = !newCheckedState;
+        });
+        return revertedState;
+      });
+    }
+  };
+
   const handleCheckboxChange = async (year: string) => {
     const newCheckedState = !eligibleData[year];
     setEligibleData((prev) => ({ ...prev, [year]: newCheckedState }));
@@ -208,9 +263,6 @@ const CourseDetailsPage: React.FC = () => {
       </Typography>
       <Typography variant="h6" sx={{ marginBottom: "20px", textAlign: "left" }}>
         {courseCode} -{" "}
-        {displayCourseDetails
-          ? Object.values(displayCourseDetails)[0].CID
-          : "Loading..."}
       </Typography>
       <Box
         sx={{
@@ -235,6 +287,16 @@ const CourseDetailsPage: React.FC = () => {
           <Typography variant="body1" sx={{ marginBottom: "10px" }}>
             Assume this course is available next semester without conflicts for:
           </Typography>
+          <Box>
+            <Checkbox
+              checked={allChecked}
+              indeterminate={!allChecked && Object.values(eligibleData).some(val => val)}
+              onChange={handleCheckAllChange}
+            />
+            <Typography variant="body2" display="inline">
+              Check all years
+            </Typography>
+          </Box>
           {displayCourseDetails &&
             Object.keys(displayCourseDetails).map((year) => (
               <Box key={year}>
