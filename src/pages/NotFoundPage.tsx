@@ -10,7 +10,7 @@ const NotFoundPage: React.FC = () => {
       minHeight="100vh"
     >
       <Typography variant="h4">404 - Page Not Found</Typography>
-    </Box>
+        </Box>
   );
 };
 

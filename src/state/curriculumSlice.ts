@@ -6,6 +6,7 @@ import {
   submitDropFailCourses,
   login,
   logout,
+  checkAuth,
 } from "./actions";
 import { UserRole } from "../types/types";
 
@@ -56,13 +57,13 @@ const initialState: CurriculumState = {
   isSimulated: false,
 
   // Auth-related fields
-  loggedIn: false,
-  username: null,
-  accessToken: null,
+  loggedIn: !!localStorage.getItem("accessToken"),
+  username: JSON.parse(localStorage.getItem("userData") || "{}").username || null,
+  accessToken: localStorage.getItem("accessToken"),
   tokenType: null,
-  role: null,
-  planId: null,
-  loggedInStudentId: null,
+  role: JSON.parse(localStorage.getItem("userData") || "{}").role || null,
+  planId: JSON.parse(localStorage.getItem("userData") || "{}").planId || null,
+  loggedInStudentId: JSON.parse(localStorage.getItem("userData") || "{}").username?.replace("b", "") || null,
 };
 
 const transformResponseToYears = (courses: any[]) => {
@@ -145,6 +146,24 @@ const curriculumSlice = createSlice({
         state.error = action.payload as string;
         state.loggedIn = false;
       })
+      builder
+  .addCase(checkAuth.fulfilled, (state, action) => {
+    state.loggedIn = true;
+    state.username = action.payload.username;
+    state.accessToken = action.payload.accessToken;
+    state.role = action.payload.role;
+    state.planId = action.payload.planId;
+    state.loggedInStudentId = action.payload.username.replace("b", "");
+  })
+  .addCase(checkAuth.rejected, (state, action) => {
+    state.loggedIn = false;
+    state.username = null;
+    state.accessToken = null;
+    state.role = null;
+    state.planId = null;
+    state.loggedInStudentId = null;
+    state.error = action.payload as string;
+  })
       .addCase(logout.fulfilled, (state) => {
         state.loggedIn = false;
         state.username = null;

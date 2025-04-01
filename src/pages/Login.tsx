@@ -45,8 +45,9 @@ const LoginPage: React.FC = () => {
         console.log("Role:", role);
 
         if (role === "student") {
-          console.log("Redirecting to /");
-          navigate("/");
+          const studentId = result.username.replace("b", "");
+          console.log("Redirecting to /visualization/:studentId with studentId:", studentId);
+          navigate(`/visualization/${studentId}`);
         } else if (role === "advisor") {
           navigate("/student-list");
         } else if (role === "curriculum_admin") {

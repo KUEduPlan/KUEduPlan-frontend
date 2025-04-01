@@ -28,7 +28,7 @@ import {
 import { AppDispatch } from "../state/store";
 import "./visualization.css";
 import Swal from "sweetalert2";
-import { useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 import { generateGroupColors } from "../utils/colorUtils";
 import { ColorSchemeType, TimeStatus } from "../types/types";
 
@@ -100,7 +100,9 @@ const VisualizationPage: React.FC = () => {
   const dispatch: AppDispatch = useDispatch();
 
   const curriculum = useSelector((state: any) => state.curriculum.years);
+  console.log("curriculum", curriculum);
   const studentInfo = useSelector((state: any) => state.curriculum.studentInfo);
+  console.log("studentInfo", studentInfo);
   const prerequisites = useSelector(
     (state: any) => state.curriculum.prerequisites
   );
@@ -109,7 +111,9 @@ const VisualizationPage: React.FC = () => {
   const accessToken = useSelector((state: any) => state.curriculum.accessToken);
   const role = useSelector((state: any) => state.curriculum.role);
   const username = useSelector((state: any) => state.curriculum.username);
+  const stdId = useSelector((state: any) => state.curriculum.loggedInStudentId);
   const student = studentInfo?.[0];
+  console.log("stdId", stdId);
 
   const numYears = curriculum.length;
   const semesterColors = getSemesterColors(numYears);
@@ -119,8 +123,6 @@ const VisualizationPage: React.FC = () => {
   );
 
   console.log("role", role);
-  console.log("loggedInStudentId", loggedInStudentId);
-
   const [nodes, setNodes] = useState<any[]>([]);
   const [edges, setEdges] = useState<any[]>([]);
   const [focusNode, setFocusNode] = useState<string | null>(null);
@@ -141,7 +143,16 @@ const VisualizationPage: React.FC = () => {
       try {
         console.log("studentId in try", studentId);
         await dispatch(fetchStudentData(studentId)).unwrap();
-        await dispatch(fetchStudyPlan(studentId)).unwrap();
+        if (studentId) {
+          const parsedStudentId = parseInt(studentId.toString(), 10);
+          if (!isNaN(parsedStudentId)) {
+            await dispatch(fetchStudyPlan(parsedStudentId)).unwrap();
+          } else {
+            console.error("Invalid student ID:", studentId);
+          }
+        } else {
+          console.error("Student ID is undefined.");
+        }
         await dispatch(fetchPrerequisiteCourses(studentId)).unwrap();
         console.log("All data fetched successfully!");
       } catch (error) {
@@ -327,7 +338,16 @@ const VisualizationPage: React.FC = () => {
       setIsSimulationMode(false);
 
       // Fetch the original study plan
-      await dispatch(fetchStudyPlan(STUDENTID)).unwrap();
+      if (studentId) {
+        const parsedStudentId = parseInt(studentId, 10);
+        if (!isNaN(parsedStudentId)) {
+          await dispatch(fetchStudyPlan(parsedStudentId)).unwrap();
+        } else {
+          console.error("Invalid student ID:", studentId);
+        }
+      } else {
+        console.error("Student ID is undefined.");
+      }
       console.log("Study plan reset to original state.");
 
       // Show success modal
@@ -475,7 +495,7 @@ const VisualizationPage: React.FC = () => {
 
       const response = await dispatch(
         submitDropFailCourses({
-          studentId: role === "student" ? STUDENTID : studentId,
+          studentId: studentId || "",
           courses: formattedCourses,
         })
       ).unwrap();
@@ -789,8 +809,8 @@ const VisualizationPage: React.FC = () => {
         .attr("height", yearHeight)
         .attr("fill", "#E0E0E0");
 
-      // Add year label
-      svg
+      if (year.year === "0") {
+        svg
         .append("text")
         .attr("x", yearX + yearWidth / 2)
         .attr("y", yearY - 20)
@@ -799,7 +819,21 @@ const VisualizationPage: React.FC = () => {
         .attr("font-weight", "bold")
         .attr("fill", "black")
         .attr("text-anchor", "middle")
-        .text(`ปีการศึกษา 25${year.year}`);
+        .text(`Transfer Courses`);
+      }
+      else {
+        // Add year label
+      svg
+      .append("text")
+      .attr("x", yearX + yearWidth / 2)
+      .attr("y", yearY - 20)
+      .attr("font-size", "16px")
+      .attr("font-family", "Prompt, Arial, sans-serif")
+      .attr("font-weight", "bold")
+      .attr("fill", "black")
+      .attr("text-anchor", "middle")
+      .text(`ปีการศึกษา 25${year.year}`);
+      }
 
       // Always render two semesters (1 and 2)
       [1, 2].forEach((semesterIndex) => {
@@ -888,6 +922,7 @@ const VisualizationPage: React.FC = () => {
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
 
+    // renderTransferCourses(svg);
     renderLabels(svg);
     renderNodes(svg);
     renderEdges(svg);
@@ -898,6 +933,7 @@ const VisualizationPage: React.FC = () => {
     renderNodes,
     renderEdges,
     renderLabels,
+    // renderTransferCourses,
   ]);
 
   useEffect(() => {
@@ -924,6 +960,7 @@ const VisualizationPage: React.FC = () => {
       .attr("flood-color", "#000")
       .attr("flood-opacity", 0.2);
 
+    // renderTransferCourses(svg);
     renderLabels(svg);
     renderNodes(svg);
     renderEdges(svg);
@@ -964,6 +1001,11 @@ const VisualizationPage: React.FC = () => {
         <Alert severity="error">{error}</Alert>
       </Box>
     );
+  }
+
+  if (role === "student" && studentId !== loggedInStudentId) {
+    console.warn("Unauthorized access attempt by student to studentId:", studentId);
+    return <Navigate to="*" />;
   }
 
   return (

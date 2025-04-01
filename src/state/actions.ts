@@ -178,9 +178,9 @@ export const fetchStudentData = createAsyncThunk(
   }
 );
 
-// Transform the study plan data
 const transformStudyPlan = (studyPlan: any[]) => {
   const groupedData: { [key: string]: any } = {};
+  const transferCourses: any[] = [];
 
   studyPlan.forEach((course) => {
     console.log("Course year:", course.YEAR);
@@ -189,6 +189,18 @@ const transformStudyPlan = (studyPlan: any[]) => {
     // Use SEM or REGISTERSEM to determine the semester
     const semester = course.SEM || course.REGISTERSEM;
     const grade = course.GRADE === "Undefined" ? "-" : course.GRADE;
+
+    if (year === 0) {
+      console.log("Transfer course detected:", course);
+      transferCourses.push({
+        code: course.CID,
+        grade: grade,
+        name: course.CNAME,
+        semester: semester,
+        group: course.GID,
+      });
+      return;
+    }
 
     if (!groupedData[year]) {
       groupedData[year] = {};
@@ -206,6 +218,13 @@ const transformStudyPlan = (studyPlan: any[]) => {
       group: course.GID,
     });
   });
+
+  if (transferCourses.length > 0) {
+    groupedData["0"] = {
+      1: transferCourses,
+      2: [],
+    };
+  }
 
   return Object.keys(groupedData).map((year) => ({
     year,
